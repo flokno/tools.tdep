@@ -1,0 +1,32 @@
+#! /usr/bin/env python
+
+from argparse import ArgumentParser as argpars
+
+parser = argpars(description='Read forces from aims output and store them in TDEP infile')
+parser.add_argument('files', type=str, nargs='+', help='aims output files')
+args = parser.parse_args()
+
+forces = []
+
+for fil in args.files:
+    print '  file being processed: {:s}'.format(fil)
+    with open(fil, 'r') as f:
+        lines = f.readlines()
+    for ii in range(len(lines)):
+        ll = lines[ii]
+        if not 'Total atomic forces (unitary forces cleaned) [eV/Ang]:' in ll:
+            continue
+        else:
+            for ll in lines[ii+1:]:
+                if ll.strip() == '':
+                    break
+                forces.append([float(ss.strip()) for ss in ll.split()[2:5]])
+        break
+
+    print '  number of forces extracted: {:d}'.format(len(forces))
+
+with open('infile.forces', 'w') as f:
+    for force in forces:
+        f.write('{:23.15E} {:23.15E} {:23.15E}\n'.format(*tuple(force)))
+
+print '  infile.forces written.'

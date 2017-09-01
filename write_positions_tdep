@@ -1,0 +1,83 @@
+#! /usr/bin/env python
+
+from argparse import ArgumentParser as argpars
+import numpy as np
+import os
+
+parser = argpars(description='Read geometry and write is as TDEP infile')
+parser.add_argument('geom', type=str, help='geometry input file')
+parser.add_argument('--force', action='store_true', help='force overwrite')
+parser.add_argument('-fn', '--filename', type=str, default='infile.ucposcar',
+                    help='output file name')
+args = parser.parse_args()
+
+positions = []
+atoms = []
+atoms_frac = []
+symbols = []
+lattice = []
+
+target_file_name = args.filename
+
+print '  file being processed: {:s}'.format(args.geom)
+with open(args.geom, 'r') as f:
+    lines = f.readlines()
+
+# find the lattice first and invert
+for ll in lines:
+    if 'lattice_vector' in ll:
+        lattice.append([float(ss) for ss in ll.split()[1:4]])
+inv_lattice = np.linalg.inv(lattice).T
+
+# find atomic positions and make them fractional if needed
+for ll in lines:
+    # convert to fractional if given in cartesian
+    if 'atom ' in ll:
+        atom_pos = np.array([float(ss) for ss in ll.split()[1:4]])
+        atom_sym = ll.split()[4]
+        atom_pos_frac = np.dot(inv_lattice, atom_pos)
+        atoms_frac.append(list(atom_pos_frac))
+        symbols.append(ll.split()[4])
+    if 'atom_frac' in ll:
+        atoms_frac.append([float(ss) for ss in ll.split()[1:4]])
+        symbols.append(ll.split()[4])
+
+
+lattice = np.array(lattice)
+
+symbols_unique, symbols_count = np.unique(np.array(symbols), return_counts=True)
+
+if os.path.exists(target_file_name) and not args.force:
+    proceed = raw_input('{:s} exists. Proceed? (y/n) '.format(target_file_name))
+    if proceed.lower() == 'y':
+        pass
+    else:
+        print('Break.')
+        exit()
+
+with open(target_file_name, 'w') as f:
+    # Comment: Name of the System
+    for sym, num in zip(symbols_unique, symbols_count):
+        f.write('{:s}{:d}'.format(sym, num))
+    f.write('\n')
+    # Write largest entry of lattice matrix and divide lattice accordingly
+    # f.write('{: 17.12E}\n'.format(lattice.max()))
+    f.write(' 1.0\n')
+    #lattice /= lattice.max()
+    # Write lattice matrix
+    for latvec in lattice:
+        f.write('{: 17.12E} {: 17.12E} {: 17.12E}\n'.format(*tuple(latvec)))
+    # Write atom symbols
+    for sym in symbols:
+        f.write('{:<2s} '.format(sym))
+    f.write('\n')
+    # Write multiplicity of each atom
+    for num in symbols:
+        f.write(' 1'.format(num))
+    f.write('\n')
+    # Write direct coordinates
+    f.write('direct coordinates\n')
+    for atom_pos, atom_sym in zip(atoms_frac, symbols):
+        f.write('{: 17.12E} {: 17.12E} {: 17.12E} {:>2s}\n'.format(atom_pos[0], atom_pos[1], atom_pos[2], atom_sym))
+
+print('{:s} written.'.format(target_file_name))
