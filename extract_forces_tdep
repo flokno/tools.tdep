@@ -23,7 +23,7 @@ for fil in args.files:
                 forces.append([float(ss.strip()) for ss in ll.split()[2:5]])
         break
 
-    print '  number of forces extracted: {:d}'.format(len(forces))
+    print '  \nnumber of forces extracted: {:d}'.format(len(forces))
 
 with open('infile.forces', 'w') as f:
     for force in forces:
