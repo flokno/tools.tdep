@@ -1,0 +1,13 @@
+# Aimstools frequently used
+
+# Emacs related files:
+*~
+
+# aims output
+*.out
+
+#.pyc files
+*.pyc
+
+# unnecessary output
+*/*/RUN.*/*
