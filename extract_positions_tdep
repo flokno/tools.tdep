@@ -9,7 +9,7 @@ args = parser.parse_args()
 positions = []
 
 for geom in args.geoms:
-    print '  file being processed: {:s}'.format(geom)
+    print('  file being processed: {:s}'.format(geom))
     with open(geom, 'r') as f:
         lines = f.readlines()
 
@@ -19,10 +19,10 @@ for geom in args.geoms:
           exit()
         if 'atom_frac' in ll:
             positions.append(ll.split()[1:4])
-print '  \nnumber of geometries extracted: {:d}'.format(len(positions))
+print('  \nnumber of geometries extracted: {:d}'.format(len(positions)))
 
 with open('infile.positions', 'w') as f:
     for pos in positions:
         f.write('{:s} {:s} {:s}\n'.format(*tuple(pos)))
 
-print '  infile.positions written.'
+print('  infile.positions written.\n')

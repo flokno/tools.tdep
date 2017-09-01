@@ -9,7 +9,7 @@ args = parser.parse_args()
 forces = []
 
 for fil in args.files:
-    print '  file being processed: {:s}'.format(fil)
+    print('  file being processed: {:s}'.format(fil))
     with open(fil, 'r') as f:
         lines = f.readlines()
     for ii in range(len(lines)):
@@ -23,10 +23,10 @@ for fil in args.files:
                 forces.append([float(ss.strip()) for ss in ll.split()[2:5]])
         break
 
-print '  \nnumber of forces extracted: {:d}'.format(len(forces))
+print('  \nnumber of forces extracted: {:d}'.format(len(forces)))
 
 with open('infile.forces', 'w') as f:
     for force in forces:
         f.write('{:23.15E} {:23.15E} {:23.15E}\n'.format(*tuple(force)))
 
-print '  infile.forces written.'
+print('  infile.forces written.\n')
