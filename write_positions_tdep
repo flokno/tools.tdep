@@ -25,20 +25,20 @@ with open(args.geom, 'r') as f:
 
 # find the lattice first and invert
 for ll in lines:
-    if 'lattice_vector' in ll:
+    if ll.strip().startswith('lattice_vector'):
         lattice.append([float(ss) for ss in ll.split()[1:4]])
 inv_lattice = np.linalg.inv(lattice).T
 
 # find atomic positions and make them fractional if needed
 for ll in lines:
     # convert to fractional if given in cartesian
-    if 'atom ' in ll:
+    if ll.strip().startswith('atom '):
         atom_pos = np.array([float(ss) for ss in ll.split()[1:4]])
         atom_sym = ll.split()[4]
         atom_pos_frac = np.dot(inv_lattice, atom_pos)
         atoms_frac.append(list(atom_pos_frac))
         symbols.append(ll.split()[4])
-    if 'atom_frac' in ll:
+    if ll.strip().startswith('atom_frac'):
         atoms_frac.append([float(ss) for ss in ll.split()[1:4]])
         symbols.append(ll.split()[4])
 
