@@ -129,4 +129,4 @@ if not args.no_meta:
         #
     #
 #
-print('\n  (Mock) data written to infile.meta and infile.stat')
+print('  (Mock) data written to infile.meta and infile.stat')

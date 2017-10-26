@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3.6
 
 from argparse import ArgumentParser as argpars
 import numpy as np
@@ -19,7 +19,7 @@ lattice = []
 
 target_file_name = args.filename
 
-print '  file being processed: {:s}'.format(args.geom)
+print('  file being processed: {:s}'.format(args.geom))
 with open(args.geom, 'r') as f:
     lines = f.readlines()
 
@@ -29,6 +29,7 @@ for ll in lines:
         lattice.append([float(ss) for ss in ll.split()[1:4]])
 inv_lattice = np.linalg.inv(lattice).T
 
+convert = False
 # find atomic positions and make them fractional if needed
 for ll in lines:
     # convert to fractional if given in cartesian
@@ -38,9 +39,15 @@ for ll in lines:
         atom_pos_frac = np.dot(inv_lattice, atom_pos)
         atoms_frac.append(list(atom_pos_frac))
         symbols.append(ll.split()[4])
+        convert = True
     if ll.strip().startswith('atom_frac'):
         atoms_frac.append([float(ss) for ss in ll.split()[1:4]])
         symbols.append(ll.split()[4])
+    #
+#
+if convert:
+    print('  Positions converted to fractional coords.\n')
+#
 
 
 lattice = np.array(lattice)
@@ -48,7 +55,7 @@ lattice = np.array(lattice)
 symbols_unique, symbols_count = np.unique(np.array(symbols), return_counts=True)
 
 if os.path.exists(target_file_name) and not args.force:
-    proceed = raw_input('{:s} exists. Proceed? (y/n) '.format(target_file_name))
+    proceed = input('{:s} exists. Proceed? (y/n) '.format(target_file_name))
     if proceed.lower() == 'y':
         pass
     else:
