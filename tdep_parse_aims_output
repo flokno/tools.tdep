@@ -1,0 +1,132 @@
+#! /usr/bin/env python3.6
+
+from argparse import ArgumentParser as argpars
+import numpy as np
+
+parser = argpars(description='Read forces and positions from aims')
+parser.add_argument('files', type=str, nargs='+', help='aims output files')
+parser.add_argument('-n', type = int, default = 1, help='step count')
+parser.add_argument('-nm', '--no_meta', action='store_true', help='dont store meta info')
+args = parser.parse_args()
+
+lattice      = []
+lattice_temp = []
+positions    = []
+forces       = []
+symbols      = []
+
+
+for fil in args.files:
+    print('  file being processed: {:s}'.format(fil))
+    with open(fil, 'r') as f:
+        lines = f.readlines()
+    for ii in range(len(lines)):
+        #
+        line = lines[ii]
+        #
+        # Find the lattice if not already found:
+        if line.strip().startswith('lattice_vector'):
+            for ll in lines[ii:ii+3]:
+                lattice_temp.append([float(ss) for ss in ll.split()[1:4]])
+            #
+            if not lattice:
+                lattice     = lattice_temp
+                inv_lattice = np.linalg.inv(lattice).T
+            else:
+                if lattice_temp != lattice:
+                    print(f'Lattice changed in file {fil}. Please check.')
+                    exit()
+            #
+        #
+        # Find the number of atoms:
+        if '| Number of atoms                   :' in line:
+            n_atoms = int(line.split()[5])
+        #
+        # Find the force at step x
+        forces_temp = []
+        if 'Total atomic forces (unitary forces cleaned) [eV/Ang]:' in line:
+            for ll in lines[ii+1 : ii+1+n_atoms]:
+                if ll.strip() == '':
+                    break
+                #
+                forces_temp.append([float(ss.strip()) for ss in ll.split()[2:5]])
+            #
+            forces.append(forces_temp)
+        #
+        # Find the positions at step x and transform to fractional:
+        positions_temp = []
+        if 'Atomic structure (and velocities) as used in the preceding time step:' in line:
+            for ll in lines[ii+2 : ii+2+2*n_atoms : 2]:
+                if ll.strip().startswith('atom '):
+                    atom_pos = np.array([float(ss) for ss in ll.split()[1:4]])
+                    atom_sym = ll.split()[4]
+                    atom_pos_frac = np.dot(inv_lattice, atom_pos)
+                    positions_temp.append(list(atom_pos_frac))
+                    symbols.append(ll.split()[4])
+                elif ll.strip().startswith('atom_frac'):
+                    atom_pos_frac = np.array([float(ss) for ss in ll.split()[1:4]])
+                    positions_temp.append(list(atom_pos_frac))
+                    symbols.append(ll.split()[4])
+                else:
+                    print(f'Error while reading positions, \n  file {fil}, line {ii}')
+                    exit()
+                #
+            #
+            positions.append(positions_temp)
+        #
+    #
+#
+
+# Reduce to number of positions/forces actually wanted:
+n_MD      = len(forces)
+forces    = np.array(forces[::args.n])
+positions = np.array(positions[::args.n])
+
+n_MD_red  = len(forces)
+
+if (forces.shape != positions.shape):
+    print(f'Shape of forces extracted = {forces.shape}, shape of Positions = {positions.shape}. Please check.')
+    exit()
+
+print(f'  \nnumber of files parsed:         {len(args.files)}')
+print(f'  number of MD steps provided:    {n_MD}')
+print(f'  MD step width selected:         {args.n}')
+print(f'  number of MD steps parsed:      {n_MD_red}')
+print(f'  number of atoms in supercell:   {n_atoms}')
+print(f'  number of pos/forces extracted: {int(forces.size / 3)} ({n_atoms} * {n_MD_red} = {n_atoms*n_MD_red})')
+
+# Write files
+shape = (forces.shape[0] * forces.shape[1], forces.shape[2])
+forces.resize(shape)
+positions.resize(shape)
+
+with open('infile.forces', 'w') as f:
+    for force in forces:
+        (fx, fy, fz) = force
+        f.write(f'{fx:23.15} {fy:23.15} {fz:23.15}\n')
+    #
+#
+with open('infile.positions', 'w') as f:
+    for pos in positions:
+        (px, py, pz) = pos
+        f.write(f'{px:23.15} {py:23.15} {pz:23.15}\n')
+    #
+#
+print('\n  infile.forces written.')
+print('  infile.positions written.\n')
+
+# Store Meta info:
+if not args.no_meta:
+    with open('infile.meta', 'w') as f:
+        f.write(f'{n_atoms}     # N atoms\n')
+        f.write(f'{n_MD_red}    # N timesteps\n')
+        f.write(f'{1.0}         # timestep in fs (currently not used norimplemented)\n')
+        f.write(f'{30000}       # temperature in K (currently not used nor bimplemented)\n')
+    #
+    with open('infile.stat', 'w') as f:
+        for ii in range(n_atoms * n_MD_red):
+            f.write('0 0 0 0 0 0 0 0 0 0 0 0 0\n')
+        #
+    #
+#
+print('\n  (Mock) data written to infile.meta and infile.stat')
