@@ -1,0 +1,17 @@
+#! /usr/bin/env bash
+
+if [ -z $1 ]
+then
+	nq=5
+else
+	nq=$1
+fi
+
+if [ -z $2 ]
+then
+	tstr='--temperature_range 300 1300 10'
+else
+	tstr="--temperature $2"
+fi
+
+orterun thermal_conductivity $tstr -qg $nq $nq $nq > thermal.out.$nq
