@@ -1,0 +1,63 @@
+#! /usr/bin/env python3.6
+
+import numpy as np
+from matplotlib import pyplot as plt
+from scipy      import stats
+import sys
+from argparse import ArgumentParser as argpars
+
+parser = argpars(description='Read forces from aims output and store them in TDEP infile')
+parser.add_argument('files', type=str, nargs='+', help='thermal.out files')
+parser.add_argument('-p', '--plot', action='store_true', help='plot or not')
+args = parser.parse_args()
+
+def write_q(q_files):
+    out_string = []
+
+    for fil in q_files:
+        nq = int(fil.split('.')[-1])
+        with open(fil, 'r') as f:
+            kappa = float(f.readlines()[-11].split()[0])
+        #
+        out_string.append(f'{nq:3} {kappa}\n')
+    #
+    # Write to file
+    with open('qpoint', 'w') as f:
+        f.writelines(out_string)
+    #
+#
+
+# Write data
+q_files = args.files
+write_q(q_files)
+
+# Read data and post process
+#
+with open('qpoint', 'r') as f:
+    lines = f.readlines()
+#
+data = []
+for ll in lines:
+    data.append(ll.split())
+#
+data = np.array(data, dtype = float)
+
+# fit linear 1/q
+qs = data[:, 0]
+ks = data[:, 1]
+slope, y0, rval, pval, sterr = stats.linregress([1/qs, ks])
+
+# Plot
+if args.plot:
+    fig, ax = plt.subplots(1)
+    ax.plot(1/data[:, 0], data[:, 1], '*')
+    xx = np.arange(0, .25, .01)
+    ax.plot(xx, y0 + xx*slope)
+    ax.set_xlim([0, .20])
+    ax.legend(['Calculated data', 'Linear fit: $\kappa_{\infty}$ = ' + f'{y0:5.4}'])
+    ax.set_xlabel('Inverse number of q-points')
+    ax.set_ylabel(r'$\kappa$  [ W/mK ]')
+    ax.set_title('q-point extrapolation')
+    plt.savefig('qpoints.png')
+
+print(f'Extrapolated q-point value = {y0} W/mK')
