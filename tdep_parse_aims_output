@@ -20,9 +20,11 @@ for fil in args.files:
     print('  file being processed: {:s}'.format(fil))
     with open(fil, 'r') as f:
         lines = f.readlines()
-    for ii in range(len(lines)):
-        #
-        line = lines[ii]
+    #
+    # First decide if we are dealing with MD or not:
+    if 'Atomic structure (and velocities) as used in the preceding time step:' not in lines:
+        MD = False
+    for ii, line in enumerate(lines):
         #
         # Find the lattice if not already found:
         if line.strip().startswith('lattice_vector'):
@@ -54,12 +56,27 @@ for fil in args.files:
             forces.append(forces_temp)
         #
         # Find the positions at step x and transform to fractional:
+        #
         positions_temp = []
+        #
+        # Case 1: No MD run
+        if not MD:
+            if '  | Atomic structure:' in line:
+                for ll in lines[ii+2 : ii+2+n_atoms]:
+                    atom_pos = np.array([float(ss) for ss in ll.split()[4:7]])
+                    atom_pos_frac = np.dot(inv_lattice, atom_pos)
+                    positions_temp.append(list(atom_pos_frac))
+                    symbols.append(ll.split()[3])
+                #
+                positions.append(positions_temp)
+                continue
+            #
+        #
+        # Case 2: Extract from MD
         if 'Atomic structure (and velocities) as used in the preceding time step:' in line:
             for ll in lines[ii+2 : ii+2+2*n_atoms : 2]:
                 if ll.strip().startswith('atom '):
                     atom_pos = np.array([float(ss) for ss in ll.split()[1:4]])
-                    atom_sym = ll.split()[4]
                     atom_pos_frac = np.dot(inv_lattice, atom_pos)
                     positions_temp.append(list(atom_pos_frac))
                     symbols.append(ll.split()[4])
