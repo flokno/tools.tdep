@@ -22,7 +22,9 @@ for fil in args.files:
         lines = f.readlines()
     #
     # First decide if we are dealing with MD or not:
-    if 'Atomic structure (and velocities) as used in the preceding time step:' not in lines:
+    if    any(['molecular dynamics' in ll for ll in lines]):
+        MD = True
+    else:
         MD = False
     for ii, line in enumerate(lines):
         #
@@ -90,6 +92,26 @@ for fil in args.files:
                 #
             #
             positions.append(positions_temp)
+        #
+        # Extract last MD step
+        if 'Final atomic structure (and velocities) as used in the preceding time step:' in line:
+            for ll in lines[ii+2 : ii+2+2*n_atoms : 2]:
+                if ll.strip().startswith('atom '):
+                    atom_pos = np.array([float(ss) for ss in ll.split()[1:4]])
+                    atom_pos_frac = np.dot(inv_lattice, atom_pos)
+                    positions_temp.append(list(atom_pos_frac))
+                    symbols.append(ll.split()[4])
+                elif ll.strip().startswith('atom_frac'):
+                    atom_pos_frac = np.array([float(ss) for ss in ll.split()[1:4]])
+                    positions_temp.append(list(atom_pos_frac))
+                    symbols.append(ll.split()[4])
+                else:
+                    print(f'Error while reading positions, \n  file {fil}, line {ii}')
+                    exit()
+                #
+            #
+            positions.append(positions_temp)
+            break
         #
     #
 #
