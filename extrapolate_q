@@ -13,7 +13,7 @@ args = parser.parse_args()
 
 # Read data and post process
 #
-with open('qpoint', 'r') as f:
+with open(args.file, 'r') as f:
     lines = f.readlines()
 #
 data = []
