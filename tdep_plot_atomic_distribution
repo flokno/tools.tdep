@@ -6,6 +6,8 @@ from argparse import ArgumentParser as argpars
 
 parser = argpars(description='plot atomic pair distribution')
 parser.add_argument('-na', type=int, help='number of unique atoms')
+parser.add_argument('-s', '--save', action='store_true', 
+        help="save results to atomic_distribution.png")
 args = parser.parse_args()
 
 # open the sqe file
@@ -14,8 +16,11 @@ f = h5.File('outfile.pair_distribution_function.hdf5','r')
 # the total
 x = np.array(f.get('r_axis'))
 y = np.array(f.get('radial_pair_distribution_function'))
-plt.plot(x,y)
-# the projected
+
+
+fig, ax = plt.subplots(1)
+ax.plot(x,y)
+# the projected:
 if args.na:
     na = args.na
     if na > f.attrs.get('number_unique_atoms'):
@@ -28,8 +33,12 @@ for i in range(na):
     x = np.array(f.get('projected_r_axis_'+str(i+1)))
     y = np.array(f.get('projected_pair_distribution_function_atom_'+str(i+1)))
     for j in range(x.shape[1]):
-        plt.plot(x[:,j],y[:,j])
+        ax.plot(x[:,j],y[:,j])
 
-plt.xlabel("Distance [\AA]")
-plt.ylabel("g(r)")
-plt.show()
+ax.set_xlabel("Distance [\AA]")
+ax.set_ylabel("g(r)")
+
+if args.save:
+    fig.savefig('atomic_distribution.pdf', bbox_inches='tight')
+else:
+    plt.show()
