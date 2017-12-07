@@ -3,7 +3,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy      import stats
-import sys
+import sys, os
 from argparse import ArgumentParser as argpars
 
 parser = argpars(description='Read forces from aims output and store them in TDEP infile')
@@ -31,6 +31,9 @@ slope, y0, rval, pval, sterr = stats.linregress([1/qs, ks])
 if args.plot:
     fig, ax = plt.subplots(1)
     ax.plot(1/data[:, 0], data[:, 1], '*')
+    for ii in range(len(data[:, 0])):
+        ax.annotate(f'{data[ii,0]:2.0f}', xy=(1/data[ii,0], data[ii,1]),
+                    xytext=(1/data[ii,0], 1.01*data[ii,1]))
     xx = np.arange(0, .25, .01)
     ax.plot(xx, y0 + xx*slope)
     ax.set_xlim([0, .20])
@@ -38,6 +41,11 @@ if args.plot:
     ax.set_xlabel('Inverse number of q-points')
     ax.set_ylabel(r'$\kappa$  [ W/mK ]')
     ax.set_title('q-point extrapolation')
-    plt.savefig('qpoints.png')
+    pname = f'{args.file.rstrip(".dat")}.png'
+    jj = 0
+    while os.path.exists(pname):
+        jj += 1
+        pname = f'{args.file.rstrip(".dat")}.{jj:d}.png'
+    plt.savefig(pname)
 
 print(f'Extrapolated q-point value = {y0} W/mK')
