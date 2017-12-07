@@ -1,0 +1,35 @@
+#! /usr/bin/env python
+import matplotlib.pyplot as plt
+import numpy as np
+import h5py as h5
+from argparse import ArgumentParser as argpars
+
+parser = argpars(description='plot atomic pair distribution')
+parser.add_argument('-na', type=int, help='number of unique atoms')
+args = parser.parse_args()
+
+# open the sqe file
+f = h5.File('outfile.pair_distribution_function.hdf5','r')
+
+# the total
+x = np.array(f.get('r_axis'))
+y = np.array(f.get('radial_pair_distribution_function'))
+plt.plot(x,y)
+# the projected
+if args.na:
+    na = args.na
+    if na > f.attrs.get('number_unique_atoms'):
+        na = f.attrs.get('number_unique_atoms')
+        print(f'  Number of unique atoms chosen:  {args.na}')
+        print(f'  Number of unique atoms present: {na}')
+else:
+    na = f.attrs.get('number_unique_atoms')
+for i in range(na):
+    x = np.array(f.get('projected_r_axis_'+str(i+1)))
+    y = np.array(f.get('projected_pair_distribution_function_atom_'+str(i+1)))
+    for j in range(x.shape[1]):
+        plt.plot(x[:,j],y[:,j])
+
+plt.xlabel("Distance [\AA]")
+plt.ylabel("g(r)")
+plt.show()
