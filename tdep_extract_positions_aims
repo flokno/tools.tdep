@@ -19,7 +19,8 @@ for geom in args.geoms:
           exit()
         if 'atom_frac' in ll:
             positions.append(ll.split()[1:4])
-print('  \nnumber of geometries extracted: {:d}'.format(len(positions)))
+print(f'  \nnumber of geometries extracted: {len(positions)} ' +
+        f'(= {len(args.geoms)} * {len(positions) / len(args.geoms):.0f})')
 
 with open('infile.positions', 'w') as f:
     for pos in positions:
