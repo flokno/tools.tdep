@@ -67,13 +67,15 @@ with open(target_file_name, 'w') as f:
     for sym, num in zip(symbols_unique, symbols_count):
         f.write('{:s}{:d}'.format(sym, num))
     f.write('\n')
-    # Write largest entry of lattice matrix and divide lattice accordingly
+    # Scale with (0,0) entry of lattice matrix:
+    lat00   = lattice[0,0]
     # f.write('{: 17.12E}\n'.format(lattice.max()))
-    f.write(' 1.0\n')
+    f.write(f'{lat00:17.9E}\n')
     #lattice /= lattice.max()
     # Write lattice matrix
     for latvec in lattice:
-        f.write('{: 17.12E} {: 17.12E} {: 17.12E}\n'.format(*tuple(latvec)))
+        latvec /= lat00
+        f.write('{:17.9E} {: 17.9E} {: 17.9E}\n'.format(*tuple(latvec)))
     # Write atom symbols
     for sym in symbols:
         f.write('{:<2s} '.format(sym))
@@ -85,6 +87,6 @@ with open(target_file_name, 'w') as f:
     # Write direct coordinates
     f.write('direct coordinates\n')
     for atom_pos, atom_sym in zip(atoms_frac, symbols):
-        f.write('{: 17.12E} {: 17.12E} {: 17.12E} {:>2s}\n'.format(atom_pos[0], atom_pos[1], atom_pos[2], atom_sym))
+        f.write('{: 17.9E} {: 17.9E} {: 17.9E} {:>2s}\n'.format(atom_pos[0], atom_pos[1], atom_pos[2], atom_sym))
 
 print('{:s} written.'.format(target_file_name))
