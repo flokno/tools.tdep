@@ -1,0 +1,9 @@
+#! /usr/bin/env bash
+
+for fil in infile.*
+do 
+	if [ -L $fil ]
+	then 
+		unlink $fil
+	fi
+done

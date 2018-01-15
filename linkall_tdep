@@ -1,0 +1,15 @@
+#! /usr/bin/env bash
+
+for fil in infile.*
+do 
+	if [ -L $fil ]
+	then 
+		unlink $fil
+	fi
+done
+
+for fil in outfile.*
+do 
+	ln -s $fil infile${fil#outfile}
+done
+
