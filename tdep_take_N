@@ -1,0 +1,77 @@
+#! /usr/bin/env python3.6
+
+from argparse import ArgumentParser as argpars
+import numpy as np
+import os
+
+parser = argpars(description=('Read infile.{forces,positions}.orig and reduce number of '
+    + 'configurations by dstep. Write to relevant input for TDEP into '
+    + 'outfile.{forces,positions,meta,stat}'))
+# parser.add_argument('infile', type=str, help='input file')
+parser.add_argument('dstep',  type=int, default = 10, 
+        help="take each {dstep}'s configuration for input")
+parser.add_argument('-na', '--natoms', type=int, 
+    help='number of atoms in the unit cell, otherwise taken from infile.ucposcar')
+parser.add_argument('--readonly', action='store_true')
+args = parser.parse_args()
+
+if not os.path.exists('infile.ucposcar'):
+    print(f'infile.ucposcar does not exists, take {args.na} as natoms')
+    natoms = args.natoms
+else:
+    with open('infile.ucposcar', 'r') as f:
+        line7  = f.readlines()[6]
+        natoms = sum([int(ss) for ss in line7.split()])
+        print(f'  from infile.ucposcat: natoms = {natoms}')
+        print(f'  -> number of irred. FC2 < {(natoms*3)**2:10d} = {natoms*3}*{natoms*3}')
+        print(f'  -> number of irred. FC3 < {(natoms*3)**3:10d} = {natoms*3}*{(natoms*3)**2}')
+
+if args.readonly:
+    exit()
+
+# open infile.forces and pick every dstep step
+with open('infile.forces.orig', 'r') as f:
+    forces = np.array(f.readlines())
+if len(forces) % natoms == 0:
+    pass
+else:
+    print(f'  len(forces) % natoms = {len(forces) / natoms}')
+    print(f'Break.')
+
+forces.resize([int(len(forces) / natoms), natoms])
+new_forces = forces[::args.dstep]
+nsteps     = new_forces.shape[0]
+
+with open('outfile.forces', 'w') as f:
+    f.writelines(new_forces.flatten())
+print(f'  parsed {new_forces.size} = {natoms} * {nsteps}'
+        + ' forces to     outfile.forces')
+
+# open infile.positions and pick every dstep position
+with open('infile.positions.orig', 'r') as f:
+    positions = np.array(f.readlines())
+if len(positions) % natoms == 0:
+    pass
+else:
+    print(f'  len(positions) % natoms = {len(positions) / natoms}')
+    print(f'Break.')
+
+positions.resize([int(len(positions) / natoms), natoms])
+new_positions = positions[::args.dstep]
+
+with open('outfile.positions', 'w') as f:
+    f.writelines(new_positions.flatten())
+print(f'  parsed {new_positions.size} = {natoms} * {nsteps} '
+        + 'positions to  outfile.positions')
+
+with open('outfile.meta', 'w') as f:
+    f.write(f'{natoms:12d}   # N atoms\n')
+    f.write(f'{nsteps:12d}   # N steps\n')
+    f.write(f'{1:12.3f}   # timestep\n')
+    f.write(f'{300:12.3f}   # temperature\n')
+print(f'  parsed relevant parameters to outfile.meta')
+
+with open('outfile.stat', 'w') as f:
+    for ii in range(nsteps):
+        f.write(f'{ii:7d} 0 0 0 0 0 0 0 0 0 0 0 0\n')
+print(f'  parsed relevant parameters to outfile.stat')
