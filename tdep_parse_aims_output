@@ -7,6 +7,7 @@ parser = argpars(description='Read forces and positions from aims')
 parser.add_argument('files', type=str, nargs='+', help='aims output files')
 parser.add_argument('-n', type = int, default = 1, help='step count')
 parser.add_argument('-nm', '--no_meta', action='store_true', help='dont store meta info')
+parser.add_argument('--rearrange', type=str, default=None)
 args = parser.parse_args()
 
 lattice      = []
@@ -15,6 +16,14 @@ positions    = []
 forces       = []
 symbols      = []
 
+if args.rearrange:
+    import pickle
+    print(f'Rearrange forces and positions with the matching positions read from {args.rearrange}')
+    with open(args.rearrange, 'rb') as f:
+        match_list = pickle.load(f)
+    #
+    print(f'  {len(match_list)} matches found.')
+    scell_args = [elem[1] for elem in match_list]
 
 for fil in args.files:
     print('  file being processed: {:s}'.format(fil))
@@ -45,6 +54,9 @@ for fil in args.files:
         # Find the number of atoms:
         if '| Number of atoms                   :' in line:
             n_atoms = int(line.split()[5])
+            # assign scell arguments:
+            if not args.rearrange:
+                scell_args = list(range(n_atoms))
         #
         # Find the force at step x
         forces_temp = []
@@ -55,7 +67,7 @@ for fil in args.files:
                 #
                 forces_temp.append([float(ss.strip()) for ss in ll.split()[2:5]])
             #
-            forces.append(forces_temp)
+            forces.append([forces_temp[ii] for ii in scell_args])
         #
         # Find the positions at step x and transform to fractional:
         #
@@ -70,7 +82,7 @@ for fil in args.files:
                     positions_temp.append(list(atom_pos_frac))
                     symbols.append(ll.split()[3])
                 #
-                positions.append(positions_temp)
+                positions.append([positions_temp[ii] for ii in scell_args])
                 continue
             #
         #
@@ -91,7 +103,8 @@ for fil in args.files:
                     exit()
                 #
             #
-            positions.append(positions_temp)
+            positions.append([positions_temp[ii] for ii in scell_args])
+
         #
         # Extract last MD step
         if 'Final atomic structure (and velocities) as used in the preceding time step:' in line:
@@ -110,7 +123,7 @@ for fil in args.files:
                     exit()
                 #
             #
-            positions.append(positions_temp)
+            positions.append([positions_temp[ii] for ii in scell_args])
             break
         #
     #
@@ -133,6 +146,10 @@ print(f'  MD step width selected:         {args.n}')
 print(f'  number of MD steps parsed:      {n_MD_red}')
 print(f'  number of atoms in supercell:   {n_atoms}')
 print(f'  number of pos/forces extracted: {int(forces.size / 3)} ({n_atoms} * {n_MD_red} = {n_atoms*n_MD_red})')
+if args.rearrange:
+    print(f'  Forces and positions rearranged:   Yes')
+else:
+    print(f'  Forces and positions rearranged:   No')
 
 # Write files
 shape = (forces.shape[0] * forces.shape[1], forces.shape[2])
