@@ -68,7 +68,10 @@ with open(target_file_name, 'w') as f:
         f.write('{:s}{:d}'.format(sym, num))
     f.write('\n')
     # Scale with (0,0) entry of lattice matrix:
-    lat00   = lattice[0,0]
+    if lattice[0,0] > 1:
+        lat00   = lattice[0,0]
+    else:
+        lat00   = 1.0
     # f.write('{: 17.12E}\n'.format(lattice.max()))
     f.write(f'{lat00:17.9E}\n')
     #lattice /= lattice.max()
