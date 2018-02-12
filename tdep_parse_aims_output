@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser as argpars
 import numpy as np
+from parse_MD import parse_traj
 
 parser = argpars(description='Read forces and positions from aims')
 parser.add_argument('files', type=str, nargs='+', help='aims output files')
@@ -17,156 +18,52 @@ forces       = []
 symbols      = []
 
 if args.rearrange:
-    import pickle
+    from pickletools import pread
     print(f'Rearrange forces and positions with the matching positions read from {args.rearrange}')
-    with open(args.rearrange, 'rb') as f:
-        match_list = pickle.load(f)
+    match_list = pread(args.rearrange)
     #
     print(f'  {len(match_list)} matches found.')
     scell_args = [elem[1] for elem in match_list]
 
-for fil in args.files:
-    print('  file being processed: {:s}'.format(fil))
-    with open(fil, 'r') as f:
-        lines = f.readlines()
-    #
-    # First decide if we are dealing with MD or not:
-    if    any(['molecular dynamics' in ll for ll in lines]):
-        MD = True
-    else:
-        MD = False
-    for ii, line in enumerate(lines):
-        #
-        # Find the lattice if not already found:
-        if line.strip().startswith('lattice_vector'):
-            for ll in lines[ii:ii+3]:
-                lattice_temp.append([float(ss) for ss in ll.split()[1:4]])
-            #
-            if not lattice:
-                lattice     = lattice_temp
-                inv_lattice = np.linalg.inv(lattice).T
-            else:
-                if lattice_temp != lattice:
-                    print(f'Lattice changed in file {fil}. Please check.')
-                    exit()
-            #
-        #
-        # Find the number of atoms:
-        if '| Number of atoms                   :' in line:
-            n_atoms = int(line.split()[5])
-            # assign scell arguments:
-            if not args.rearrange:
-                scell_args = list(range(n_atoms))
-        #
-        # Find the force at step x
-        forces_temp = []
-        if 'Total atomic forces (unitary forces cleaned) [eV/Ang]:' in line:
-            for ll in lines[ii+1 : ii+1+n_atoms]:
-                if ll.strip() == '':
-                    break
-                #
-                forces_temp.append([float(ss.strip()) for ss in ll.split()[2:5]])
-            #
-            forces.append([forces_temp[ii] for ii in scell_args])
-        #
-        # Find the positions at step x and transform to fractional:
-        #
-        positions_temp = []
-        #
-        # Case 1: No MD run
-        if not MD:
-            if '  | Atomic structure:' in line:
-                for ll in lines[ii+2 : ii+2+n_atoms]:
-                    atom_pos = np.array([float(ss) for ss in ll.split()[4:7]])
-                    atom_pos_frac = np.dot(inv_lattice, atom_pos)
-                    positions_temp.append(list(atom_pos_frac))
-                    symbols.append(ll.split()[3])
-                #
-                positions.append([positions_temp[ii] for ii in scell_args])
-                continue
-            #
-        #
-        # Case 2: Extract from MD
-        if 'Atomic structure (and velocities) as used in the preceding time step:' in line:
-            for ll in lines[ii+2 : ii+2+2*n_atoms : 2]:
-                if ll.strip().startswith('atom '):
-                    atom_pos = np.array([float(ss) for ss in ll.split()[1:4]])
-                    atom_pos_frac = np.dot(inv_lattice, atom_pos)
-                    positions_temp.append(list(atom_pos_frac))
-                    symbols.append(ll.split()[4])
-                elif ll.strip().startswith('atom_frac'):
-                    atom_pos_frac = np.array([float(ss) for ss in ll.split()[1:4]])
-                    positions_temp.append(list(atom_pos_frac))
-                    symbols.append(ll.split()[4])
-                else:
-                    print(f'Error while reading positions, \n  file {fil}, line {ii}')
-                    exit()
-                #
-            #
-            positions.append([positions_temp[ii] for ii in scell_args])
-
-        #
-        # Extract last MD step
-        if 'Final atomic structure (and velocities) as used in the preceding time step:' in line:
-            for ll in lines[ii+2 : ii+2+2*n_atoms : 2]:
-                if ll.strip().startswith('atom '):
-                    atom_pos = np.array([float(ss) for ss in ll.split()[1:4]])
-                    atom_pos_frac = np.dot(inv_lattice, atom_pos)
-                    positions_temp.append(list(atom_pos_frac))
-                    symbols.append(ll.split()[4])
-                elif ll.strip().startswith('atom_frac'):
-                    atom_pos_frac = np.array([float(ss) for ss in ll.split()[1:4]])
-                    positions_temp.append(list(atom_pos_frac))
-                    symbols.append(ll.split()[4])
-                else:
-                    print(f'Error while reading positions, \n  file {fil}, line {ii}')
-                    exit()
-                #
-            #
-            positions.append([positions_temp[ii] for ii in scell_args])
-            break
-        #
-    #
 #
+# Parse the trajectory
+atom0, traj = parse_traj(args.files)
 
-# Reduce to number of positions/forces actually wanted:
-n_MD      = len(forces)
-forces    = np.array(forces[::args.n])
-positions = np.array(positions[::args.n])
+#
+n_MD_full = len(traj) - 1
 
-n_MD_red  = len(forces)
+# Discard configurations that don't have a force calculator attached (e.g. start and end config of MD)
+traj = [atom for atom in traj if atom._calc]
 
-if (forces.shape != positions.shape):
-    print(f'Shape of forces extracted = {forces.shape}, shape of Positions = {positions.shape}. Please check.')
-    exit()
+# Choose step width
+traj = traj[::args.n]
 
-print(f'  \nnumber of files parsed:         {len(args.files)}')
-print(f'  number of MD steps provided:    {n_MD}')
-print(f'  MD step width selected:         {args.n}')
-print(f'  number of MD steps parsed:      {n_MD_red}')
-print(f'  number of atoms in supercell:   {n_atoms}')
-print(f'  number of pos/forces extracted: {int(forces.size / 3)} ({n_atoms} * {n_MD_red} = {n_atoms*n_MD_red})')
+# Count
+n_MD = len(traj)
+n_atoms = len(atom0.get_chemical_symbols())
+
+# Feedback
+print(f'  MD step width selected:           {args.n}')
+print(f'  number of MD steps provided:      {n_MD_full}')
+print(f'  number of MD steps parsed:        {n_MD}')
+print(f'  number of atoms in supercell:     {n_atoms}')
+print(f'  number of pos/forces extracted:   {n_atoms} * {n_MD} = {n_atoms*n_MD}')
 if args.rearrange:
     print(f'  Forces and positions rearranged:   Yes')
 else:
     print(f'  Forces and positions rearranged:   No')
 
 # Write files
-shape = (forces.shape[0] * forces.shape[1], forces.shape[2])
-forces.resize(shape)
-positions.resize(shape)
-
-with open('infile.forces', 'w') as f:
-    for force in forces:
-        (fx, fy, fz) = force
-        f.write(f'{fx:23.15} {fy:23.15} {fz:23.15}\n')
-    #
-#
-with open('infile.positions', 'w') as f:
-    for pos in positions:
-        (px, py, pz) = pos
-        f.write(f'{px:23.15} {py:23.15} {pz:23.15}\n')
-    #
+with open('infile.forces', 'w') as ff, open('infile.positions', 'w') as fp:
+    for ii, atom in enumerate(traj):
+        print(f'Write pos, force for atom {ii}')
+        positions = atom.get_scaled_positions()[scell_args]
+        forces    = atom._calc.results['forces'][scell_args]
+        for jj, (pos, force) in enumerate(zip(positions, forces)):
+            (px, py, pz) = pos
+            (fx, fy, fz) = force
+            fp.write(f'{px:23.15} {py:23.15} {pz:23.15}\n')
+            ff.write(f'{fx:23.15} {fy:23.15} {fz:23.15}\n')
 #
 print('\n  infile.forces written.')
 print('  infile.positions written.\n')
@@ -175,12 +72,12 @@ print('  infile.positions written.\n')
 if not args.no_meta:
     with open('infile.meta', 'w') as f:
         f.write(f'{n_atoms}     # N atoms\n')
-        f.write(f'{n_MD_red}    # N timesteps\n')
+        f.write(f'{n_MD}        # N timesteps\n')
         f.write(f'{1.0}         # timestep in fs (currently not used norimplemented)\n')
         f.write(f'{30000}       # temperature in K (currently not used nor bimplemented)\n')
     #
     with open('infile.stat', 'w') as f:
-        for ii in range(n_atoms * n_MD_red):
+        for ii in range(n_atoms * n_MD):
             f.write('0 0 0 0 0 0 0 0 0 0 0 0 0\n')
         #
     #
