@@ -17,13 +17,13 @@ positions    = []
 forces       = []
 symbols      = []
 
-if args.rearrange:
-    from pickletools import pread
-    print(f'Rearrange forces and positions with the matching positions read from {args.rearrange}')
-    match_list = pread(args.rearrange)
-    #
-    print(f'  {len(match_list)} matches found.')
-    scell_args = [elem[1] for elem in match_list]
+#if args.rearrange:
+#    from pickletools import pread
+#    print(f'Rearrange forces and positions with the matching positions read from {args.rearrange}')
+#    match_list = pread(args.rearrange)
+#    #
+#    print(f'  {len(match_list)} matches found.')
+#    scell_args = [elem[1] for elem in match_list]
 
 #
 # Parse the trajectory
@@ -33,7 +33,7 @@ atom0, traj = parse_traj(args.files)
 n_MD_full = len(traj) - 1
 
 # Discard configurations that don't have a force calculator attached (e.g. start and end config of MD)
-traj = [atom for atom in traj if atom._calc]
+traj = [atom for atom in traj[1:] if atom._calc]
 
 # Choose step width
 traj = traj[::args.n]
@@ -56,6 +56,7 @@ else:
 # Write files
 with open('infile.forces', 'w') as ff, open('infile.positions', 'w') as fp:
     for ii, atom in enumerate(traj):
+        scell_args= [l[1] for l in atom.match_list]
         print(f'Write pos, force for atom {ii}')
         positions = atom.get_scaled_positions()[scell_args]
         forces    = atom._calc.results['forces'][scell_args]
