@@ -8,7 +8,6 @@ import pickle
 parser = argpars(description='Compare TDEP supercell with some other cell and match them')
 parser.add_argument('tcell', type=str, help='tdep input file')
 parser.add_argument('ocell', type=str, help='otherinput file')
-parser.add_argument('--tol', type=float, default=1e-5)
 parser.add_argument('-v', '--verbose', action='store_true')
 parser.add_argument('-fn', '--filename', default='out.scellmatches.p')
 args = parser.parse_args()
@@ -84,13 +83,15 @@ norm = np.linalg.norm
 print(f'Compare the supercells')
 for ii, tdep_line in enumerate(pos_lines):
     tdep_pos = np.array([ float(ll) for ll in tdep_line.split()[0:3]])
+    diff = 1000
+    temp_jj = 0
     for jj, opos in enumerate(atoms_frac):
-        if (norm(opos - tdep_pos)) < args.tol:
-            if args.verbose:
-                print(f'Candidate pair:  {ii} and {jj}')
-                print(f'  Norm:          {(norm(opos - tdep_pos))}')
-            #
-            match_list.append((ii, jj))
+        # wrap with lattice
+        if (norm(opos - tdep_pos)) < diff:
+            diff  = norm(opos - tdep_pos)
+            temp_jj = jj
+        #
+        match_list.append((ii, jj))
 #
 print(f'  Pairs matched: {len(match_list)}')
 if args.verbose:
