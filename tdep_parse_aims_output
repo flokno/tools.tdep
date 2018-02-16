@@ -7,6 +7,7 @@ from parse_MD import parse_traj
 parser = argpars(description='Read forces and positions from aims')
 parser.add_argument('files', type=str, nargs='+', help='aims output files')
 parser.add_argument('-n', type = int, default = 1, help='step count')
+parser.add_argument('-d', type = int, default = 0, help='discard this many steps')
 parser.add_argument('-nm', '--no_meta', action='store_true', help='dont store meta info')
 parser.add_argument('--rearrange', type=str, default=None)
 args = parser.parse_args()
@@ -17,13 +18,15 @@ positions    = []
 forces       = []
 symbols      = []
 
-#if args.rearrange:
-#    from pickletools import pread
-#    print(f'Rearrange forces and positions with the matching positions read from {args.rearrange}')
-#    match_list = pread(args.rearrange)
-#    #
-#    print(f'  {len(match_list)} matches found.')
-#    scell_args = [elem[1] for elem in match_list]
+if args.rearrange:
+    from pickletools import pread
+    print(f'Rearrange forces and positions with the matching positions read from {args.rearrange}')
+    match_list = pread(args.rearrange)
+    #
+    print(f'  {len(match_list)} matches found.')
+    scell_args = [elem[1] for elem in match_list]
+else:
+    scell_args= range(n_atoms) #[l[1] for l in atom.match_list]
 
 #
 # Parse the trajectory
@@ -36,7 +39,7 @@ n_MD_full = len(traj) - 1
 traj = [atom for atom in traj[1:] if atom.get_forces() is not None]
 
 # Choose step width
-traj = traj[::args.n]
+traj = traj[args.d::args.n]
 
 # Count
 n_MD = len(traj)
@@ -44,6 +47,7 @@ n_atoms = len(atom0.get_chemical_symbols())
 
 # Feedback
 print(f'  MD step width selected:           {args.n}')
+print(f'  Discard first n steps:            {args.n}')
 print(f'  number of MD steps provided:      {n_MD_full}')
 print(f'  number of MD steps parsed:        {n_MD}')
 print(f'  number of atoms in supercell:     {n_atoms}')
@@ -56,7 +60,6 @@ else:
 # Write files
 with open('infile.forces', 'w') as ff, open('infile.positions', 'w') as fp:
     for ii, atom in enumerate(traj):
-        scell_args= range(n_atoms) #[l[1] for l in atom.match_list]
         print(f'Write pos, force for atom {ii}')
         positions = atom.get_scaled_positions()[scell_args]
         forces    = atom.get_forces()[scell_args]
