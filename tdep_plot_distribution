@@ -1,0 +1,24 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import h5py as h5
+
+# open the sqe file
+f = h5.File('outfile.pair_distribution_function.hdf5','r')
+
+# the total
+x0 = np.array(f.get('r_axis'))
+y0 = np.array(f.get('radial_pair_distribution_function'))
+# the projected
+na = f.attrs.get('number_unique_atoms')
+fig, axs = plt.subplots(na, sharex='col')
+for i in range(na):
+    axs[i].plot(x0, y0)
+    x = np.array(f.get('projected_r_axis_'+str(i+1)))
+    y = np.array(f.get('projected_pair_distribution_function_atom_'+str(i+1)))
+    for j in range(x.shape[1]):
+        axs[i].plot(x[:,j],y[:,j])
+
+axs[0].set_xlim([0, 5])
+plt.xlabel("Distance (A)")
+plt.ylabel("g(r)")
+plt.savefig('pair_distribution.pdf')
