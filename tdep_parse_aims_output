@@ -2,10 +2,11 @@
 
 from argparse import ArgumentParser as argpars
 import numpy as np
+#from parse_MD import parse_traj
 from libflo.helpers import pread
 
 parser = argpars(description='Read forces and positions from aims')
-parser.add_argument('files', type=str, nargs='+', help='aims output files')
+parser.add_argument('file', type=str, help='parsed aims output files')
 parser.add_argument('-n', type = int, default = 1, help='step count')
 parser.add_argument('-d', type = int, default = 0, help='discard this many steps')
 parser.add_argument('-nm', '--no_meta', action='store_true', help='dont store meta info')
@@ -18,16 +19,21 @@ positions    = []
 forces       = []
 symbols      = []
 
+#
+# Parse the trajectory
+traj = pread(args.file)
+atom0 = traj.pop(0)
+
 if args.rearrange:
     print(f'Rearrange forces and positions with the matching positions read from {args.rearrange}')
     match_list = pread(args.rearrange)
     #
     print(f'  {len(match_list)} matches found.')
     scell_args = [elem[1] for elem in match_list]
+else:
+    scell_args= range(atom0.get_n_atoms()) #[l[1] for l in atom.match_list]
 
-#
-# Parse the trajectory
-traj = pread(args.files[0])
+
 
 #
 n_MD_full = len(traj) - 1
