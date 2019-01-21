@@ -2,7 +2,7 @@
 
 from argparse import ArgumentParser as argpars
 import numpy as np
-from parse_MD import parse_traj
+from libflo.helpers import pread
 
 parser = argpars(description='Read forces and positions from aims')
 parser.add_argument('files', type=str, nargs='+', help='aims output files')
@@ -19,31 +19,30 @@ forces       = []
 symbols      = []
 
 if args.rearrange:
-    from pickletools import pread
     print(f'Rearrange forces and positions with the matching positions read from {args.rearrange}')
     match_list = pread(args.rearrange)
     #
     print(f'  {len(match_list)} matches found.')
     scell_args = [elem[1] for elem in match_list]
-else:
-    scell_args= range(n_atoms) #[l[1] for l in atom.match_list]
 
 #
 # Parse the trajectory
-atom0, traj = parse_traj(args.files)
+traj = pread(args.files[0])
 
 #
 n_MD_full = len(traj) - 1
 
 # Discard configurations that don't have a force calculator attached (e.g. start and end config of MD)
-traj = [atom for atom in traj[1:] if atom.get_forces() is not None]
+traj = [atom for atom in traj[:] if atom.get_forces() is not None]
 
 # Choose step width
 traj = traj[args.d::args.n]
 
 # Count
 n_MD = len(traj)
-n_atoms = len(atom0.get_chemical_symbols())
+n_atoms = len(traj[0].get_chemical_symbols())
+if not args.rearrange:
+    scell_args= range(n_atoms) #[l[1] for l in atom.match_list]
 
 # Feedback
 print(f'  MD step width selected:           {args.n}')

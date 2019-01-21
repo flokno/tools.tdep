@@ -1,6 +1,26 @@
+#! /usr/bin/env python
+
 import matplotlib.pyplot as plt
 import numpy as np
 import h5py as h5
+from argparse import ArgumentParser as argpars
+
+parser = argpars(description='plot pair distribution function')
+parser.add_argument('--xlim', nargs=2, type=float, default=None)
+parser.add_argument('--ylim', nargs=2, type=float, default=None)
+parser.add_argument('--type', type=int, default=None)
+parser.add_argument('--xlabel', action='store_true')
+parser.add_argument('--ylabel', action='store_true')
+args = parser.parse_args()
+
+# types:
+with open('infile.ucposcar', 'r') as f:
+    temp = np.array(f.readlines()[5].strip().split())
+    _, idx = np.unique(temp, return_index=True)
+    types =  list(temp[np.sort(idx)])
+
+# colors
+colors = ['#1f77b4', 'orange', 'r', 'c', 'm', 'y', 'w']
 
 # open the sqe file
 f = h5.File('outfile.pair_distribution_function.hdf5','r')
@@ -10,15 +30,37 @@ x0 = np.array(f.get('r_axis'))
 y0 = np.array(f.get('radial_pair_distribution_function'))
 # the projected
 na = f.attrs.get('number_unique_atoms')
-fig, axs = plt.subplots(na, sharex='col')
-for i in range(na):
-    axs[i].plot(x0, y0)
+
+fig, ax = plt.subplots(1)
+if args.type is not None:
+    rge = [args.type]
+else:
+    rge = range(na)
+for i in rge:
+    if args.type is None:
+        ax.plot(x0, y0, color='grey')
     x = np.array(f.get('projected_r_axis_'+str(i+1)))
     y = np.array(f.get('projected_pair_distribution_function_atom_'+str(i+1)))
     for j in range(x.shape[1]):
-        axs[i].plot(x[:,j],y[:,j])
+        ax.fill_between(x[:,j],y[:,j], color=colors[j], alpha=0.68)
 
-axs[0].set_xlim([0, 5])
-plt.xlabel("Distance (A)")
-plt.ylabel("g(r)")
-plt.savefig('pair_distribution.pdf')
+if args.xlim is not None:
+    ax.set_xlim([args.xlim[0], args.xlim[1]])
+if args.ylim is not None:
+    ax.set_ylim([args.ylim[0], args.ylim[1]])
+
+if args.xlabel:
+    plt.xlabel("Distance (A)", size=20)
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(15)
+else:
+    ax.xaxis.set_ticklabels(''*len(ax.xaxis.get_major_ticks()))
+if args.ylabel:
+    plt.ylabel("g(r)", rotation='horizontal', labelpad=30, size=20)
+    for tick in ax.yaxis.get_major_ticks():
+        tick.label.set_fontsize(15)
+else:
+    ax.yaxis.set_ticklabels(''*len(ax.yaxis.get_major_ticks()))
+
+plt.tight_layout()
+plt.savefig('pair_distribution.pdf', bbox_inches='tight')
