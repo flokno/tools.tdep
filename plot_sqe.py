@@ -12,7 +12,7 @@ def get_canvas():
     return fig, ax
 
 
-def main(file: Path, ylim: float = None):
+def main(file: Path, ylim: float = None, half: bool = False):
     # open the sqe file
     typer.echo(f"Read spectral function from {file}")
     f = h5.File(file, "r")
@@ -47,12 +47,17 @@ def main(file: Path, ylim: float = None):
     ax.set_xlim([x.min(), x.max()])
     if ylim is None:
         ylim = y.max()
+        if half:
+            ylim /= 2
     ax.set_ylim([y.min(), ylim])
     ax.set_xticks(xt)
     ax.set_xticklabels(xl)
     ax.set_ylabel(yl)
 
-    outfile = file.stem + ".png"
+    outfile = file.stem
+    if half:
+        outfile += "_half"
+    outfile += ".png"
     typer.echo(f".. save to {outfile}")
     fig.savefig(outfile, dpi=300)
 
