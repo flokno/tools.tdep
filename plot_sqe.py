@@ -4,7 +4,7 @@ import h5py as h5
 import matplotlib.pyplot as plt
 import numpy as np
 import typer
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, Normalize
 
 
 def get_canvas():
@@ -12,7 +12,15 @@ def get_canvas():
     return fig, ax
 
 
-def main(file: Path, ylim: float = None, half: bool = False):
+def main(
+    file: Path,
+    ylim: float = None,
+    half: bool = False,
+    max_intensity: float = 1,
+    min_intensity: float = 1e-4,
+    linear: bool = False,
+    zoom: bool = False,
+):
     # open the sqe file
     typer.echo(f"Read spectral function from {file}")
     f = h5.File(file, "r")
@@ -28,8 +36,11 @@ def main(file: Path, ylim: float = None, half: bool = False):
     except KeyError:
         gz = np.array(f["intensity"])  # compatibility with older sqe.hdf5 files
 
+    # normalize intensity
+    gz /= gz.max()
+
     # add a little bit so that the logscale does not go nuts
-    gz = gz + 1e-2
+    gz = gz + min_intensity
     # for plotting, turn the axes into 2d arrays
     gx, gy = np.meshgrid(x, y)
     # x-ticks
@@ -39,10 +50,26 @@ def main(file: Path, ylim: float = None, half: bool = False):
     # label for y-axis
     yl = f"Energy ({f.attrs.get('energy_unit').decode():s})"
 
+    # zoom?
+    if zoom:
+        max_intensity = 0.005
+        linear = True
+        typer.echo(".. zoom in:")
+        typer.echo(f"... max intensity: {max_intensity}")
+        typer.echo("... use linear scale")
+
+    # cap intensity
+    if max_intensity < 1:
+        gz[gz > max_intensity] = max_intensity
+
     fig, ax = get_canvas()
 
-    kw = {"cmap": "viridis", "shading": "auto"}
-    ax.pcolormesh(gx, gy, gz, norm=LogNorm(vmin=gz.min(), vmax=gz.max()), **kw)
+    if linear:
+        norm = Normalize(vmin=gz.min(), vmax=gz.max())
+    else:
+        norm = LogNorm(vmin=gz.min(), vmax=gz.max())
+    kw = {"cmap": "viridis", "shading": "auto", "norm": norm}
+    ax.pcolormesh(gx, gy, gz, **kw)
     # set the limits of the plot to the limits of the data
     ax.set_xlim([x.min(), x.max()])
     if ylim is None:
@@ -57,6 +84,13 @@ def main(file: Path, ylim: float = None, half: bool = False):
     outfile = file.stem
     if half:
         outfile += "_half"
+    if zoom:
+        outfile += "_zoom"
+    if not zoom and max_intensity < 1:
+        outfile += "_intensity"
+    if not zoom and linear:
+        outfile += "_linear"
+
     outfile += ".png"
     typer.echo(f".. save to {outfile}")
     fig.savefig(outfile, dpi=300)
