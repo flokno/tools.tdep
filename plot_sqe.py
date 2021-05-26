@@ -15,18 +15,20 @@ def get_canvas():
 def main(
     file: Path,
     ylim: float = None,
-    half: bool = False,
+    max_frequency: float = 0.99,
     max_intensity: float = 1,
     min_intensity: float = 1e-4,
     linear: bool = False,
-    zoom: bool = False,
 ):
     # open the sqe file
     typer.echo(f"Read spectral function from {file}")
     f = h5.File(file, "r")
 
-    typer.echo(".. keys in file:")
-    typer.echo(f.keys())
+    # typer.echo(".. keys in file:")
+    # typer.echo(f.keys())
+
+    # template output file name
+    outfile = file.stem
 
     # get axes and intensity
     x = np.array(f.get("q_values"))
@@ -35,6 +37,19 @@ def main(
         gz = np.array(f["spectral_function"])
     except KeyError:
         gz = np.array(f["intensity"])  # compatibility with older sqe.hdf5 files
+
+    # integrate intensity in energy
+    n_bands = np.trapz(gz, x=y, axis=0).mean()
+    typer.echo(f".. no. of bands:      {n_bands}")
+
+    if max_frequency < 1:
+        # find ylim as fraction of full band occupation
+        for nn, yy in enumerate(y):
+            gz_int = np.trapz(gz[:nn], x=y[:nn], axis=0).mean()
+            if gz_int > max_frequency * n_bands:
+                ylim = yy
+                typer.echo(f".. {max_frequency*100}% intensity at {yy:.3f} THz")
+                break
 
     # normalize intensity
     gz /= gz.max()
@@ -49,14 +64,6 @@ def main(
     xl = f.attrs.get("q_tick_labels").decode().split()
     # label for y-axis
     yl = f"Energy ({f.attrs.get('energy_unit').decode():s})"
-
-    # zoom?
-    if zoom:
-        max_intensity = 0.005
-        linear = True
-        typer.echo(".. zoom in:")
-        typer.echo(f"... max intensity: {max_intensity}")
-        typer.echo("... use linear scale")
 
     # cap intensity
     if max_intensity < 1:
@@ -74,22 +81,23 @@ def main(
     ax.set_xlim([x.min(), x.max()])
     if ylim is None:
         ylim = y.max()
-        if half:
-            ylim /= 2
+
     ax.set_ylim([y.min(), ylim])
     ax.set_xticks(xt)
     ax.set_xticklabels(xl)
     ax.set_ylabel(yl)
 
-    outfile = file.stem
-    if half:
-        outfile += "_half"
-    if zoom:
-        outfile += "_zoom"
-    if not zoom and max_intensity < 1:
+    # talk
+    typer.echo(f".. ylim is            {ylim:.4f} THz")
+    typer.echo(f".. max intensity:     {max_intensity}")
+    typer.echo(f".. use linear scale:  {linear}")
+
+    if max_intensity < 1:
         outfile += "_intensity"
-    if not zoom and linear:
+    if linear:
         outfile += "_linear"
+    if max_frequency < 0.99:
+        outfile += f"_max_{max_frequency:4.2f}"
 
     outfile += ".png"
     typer.echo(f".. save to {outfile}")
