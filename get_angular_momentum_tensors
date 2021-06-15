@@ -54,6 +54,8 @@ def main(file: str):
     typer.echo(f".. write angular momentum tensor at room temperature to {outfile}")
     np.savetxt(outfile, da.loc[300])
 
+    typer.echo(f".. norm at 300K: {np.linalg.norm(da.loc[300]):7.3e}")
+
 
 if __name__ == "__main__":
     typer.run(main)
