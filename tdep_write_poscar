@@ -1,98 +1,21 @@
 #! /usr/bin/env python
 
-import os
 from argparse import ArgumentParser as argpars
-import numpy as np
+
+from ase.io import read
 
 parser = argpars(description="Read geometry and write is as TDEP infile")
 parser.add_argument("geom", type=str, help="geometry input file")
 parser.add_argument("--force", action="store_true", help="force overwrite")
 parser.add_argument("-fn", "--filename", type=str, default="infile.ucposcar")
+parser.add_argument("--format", default="aims")
 args = parser.parse_args()
 
-positions = []
-atoms = []
-atoms_frac = []
-symbols = []
-lattice = []
+print(f"Read {args.geom}")
+atoms = read(args.geom, format=args.format)
 
-target_file_name = args.filename
+write_settings = {"format": "vasp", "direct": True, "vasp5": True}
+atoms.write(args.filename, **write_settings)
 
-print("  file being processed: {:s}".format(args.geom))
-with open(args.geom, "r") as f:
-    lines = f.readlines()
+print(f".. written to {args.filename}")
 
-# find the lattice first and invert
-for ll in lines:
-    if ll.strip().startswith("lattice_vector"):
-        lattice.append([float(ss) for ss in ll.split()[1:4]])
-inv_lattice = np.linalg.inv(lattice).T
-
-convert = False
-# find atomic positions and make them fractional if needed
-for ll in lines:
-    # convert to fractional if given in cartesian
-    if ll.strip().startswith("atom "):
-        atom_pos = np.array([float(ss) for ss in ll.split()[1:4]])
-        atom_sym = ll.split()[4]
-        atom_pos_frac = inv_lattice @ atom_pos
-        atoms_frac.append(list(atom_pos_frac))
-        symbols.append(ll.split()[4])
-        convert = True
-    if ll.strip().startswith("atom_frac"):
-        atoms_frac.append([float(ss) for ss in ll.split()[1:4]])
-        symbols.append(ll.split()[4])
-    #
-#
-if convert:
-    print("  Positions converted to fractional coords.\n")
-#
-
-
-lattice = np.array(lattice)
-
-symbols_unique, symbols_count = np.unique(np.array(symbols), return_counts=True)
-
-if os.path.exists(target_file_name) and not args.force:
-    proceed = input("{:s} exists. Proceed? (y/n) ".format(target_file_name))
-    if proceed.lower() == "y":
-        pass
-    else:
-        print("Break.")
-        exit()
-
-with open(target_file_name, "w") as f:
-    # Comment: Name of the System
-    for sym, num in zip(symbols_unique, symbols_count):
-        f.write("{:s}{:d}".format(sym, num))
-    f.write("\n")
-    # Scale with (0,0) entry of lattice matrix:
-    if lattice[0, 0] > 1:
-        lat00 = lattice[0, 0]
-    else:
-        lat00 = 1.0
-    # f.write('{: 17.12E}\n'.format(lattice.max()))
-    f.write(f"{lat00:17.9E}\n")
-    # lattice /= lattice.max()
-    # Write lattice matrix
-    for latvec in lattice:
-        latvec /= lat00
-        f.write("{:17.9E} {: 17.9E} {: 17.9E}\n".format(*tuple(latvec)))
-    # Write atom symbols
-    for sym in symbols:
-        f.write("{:<2s} ".format(sym))
-    f.write("\n")
-    # Write multiplicity of each atom
-    for num in symbols:
-        f.write(" 1".format(num))
-    f.write("\n")
-    # Write direct coordinates
-    f.write("direct coordinates\n")
-    for atom_pos, atom_sym in zip(atoms_frac, symbols):
-        f.write(
-            "{: 17.9E} {: 17.9E} {: 17.9E} {:>2s}\n".format(
-                atom_pos[0], atom_pos[1], atom_pos[2], atom_sym
-            )
-        )
-
-print("{:s} written.".format(target_file_name))
