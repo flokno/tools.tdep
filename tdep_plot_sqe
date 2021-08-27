@@ -43,7 +43,7 @@ def main(
     n_bands = np.trapz(gz, x=y, axis=0).mean()
     typer.echo(f".. no. of bands:      {n_bands}")
 
-    if max_frequency < 1:
+    if not ylim and max_frequency < 1:
         # find ylim as fraction of full band occupation
         for nn, yy in enumerate(y):
             gz_int = np.trapz(gz[:nn], x=y[:nn], axis=0).mean()

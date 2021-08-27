@@ -1,16 +1,16 @@
 #! /usr/bin/env python3.6
 
-from argparse import ArgumentParser as argpars
-import numpy as np
-import os
 import pickle
+from argparse import ArgumentParser as argpars
 
-parser = argpars(description='Compare TDEP supercell with some other cell and match them')
-parser.add_argument('tcell', type=str, help='tdep input file')
-parser.add_argument('ocell', type=str, help='otherinput file')
-parser.add_argument('--tol', type=float, default=1e-2)
-parser.add_argument('-v', '--verbose', action='store_true')
-parser.add_argument('-fn', '--filename', default='out.scellmatches.p')
+import numpy as np
+
+parser = argpars(description="Compare and match supercell positions")
+parser.add_argument("tcell", type=str, help="tdep input file")
+parser.add_argument("ocell", type=str, help="otherinput file")
+parser.add_argument("--tol", type=float, default=1e-2)
+parser.add_argument("-v", "--verbose", action="store_true")
+parser.add_argument("-fn", "--filename", default="out.scellmatches.p")
 args = parser.parse_args()
 
 positions = []
@@ -22,40 +22,41 @@ lattice = []
 target_file_name = args.filename
 
 ofile = args.tcell
-print('  file being processed: {:s}'.format(ofile))
-with open(ofile, 'r') as f:
+print("  file being processed: {:s}".format(ofile))
+with open(ofile, "r") as f:
     lines = f.readlines()
 
 # Parse tdep poscar
-comment       = lines[0]
-lat_const     = float(lines[1].strip())
-lattice       = np.array([[lat_const * float(st) for st in line.split()] for line in lines[2:5]])
-atom_types    = lines[5].split()
-atom_numbers  = [int(ll) for ll in lines[6].split()]
+comment = lines[0]
+lat_const = float(lines[1].strip())
+lattice = np.array([[float(st) for st in line.split()] for line in lines[2:5]])
+lattice *= lat_const
+atom_types = lines[5].split()
+atom_numbers = [int(ll) for ll in lines[6].split()]
 
-if 'direct' in lines[7].lower():
+if "direct" in lines[7].lower():
     pass
 else:
     print(f"Line 7 is \n{lines[7]}\nexpected something like 'direct'")
 
 pos_lines = [ll for ll in lines[8:] if ll]
-print(f'{len(pos_lines)} positions parsed from {ofile}')
+print(f"{len(pos_lines)} positions parsed from {ofile}")
 
 
 ###### Other supercell
 # Read in other supercell
 ofile = args.ocell
-print('  file being processed: {:s}'.format(ofile))
-with open(ofile, 'r') as f:
+print("  file being processed: {:s}".format(ofile))
+with open(ofile, "r") as f:
     lines = f.readlines()
 
-olattice   = []
-atom_pos   = []
-symbols    = []
+olattice = []
+atom_pos = []
+symbols = []
 atoms_frac = []
 # find the lattice first and invert
 for ll in lines:
-    if ll.strip().startswith('lattice_vector'):
+    if ll.strip().startswith("lattice_vector"):
         olattice.append([float(ss) for ss in ll.split()[1:4]])
 oinv_lattice = np.linalg.inv(lattice).T
 
@@ -63,13 +64,13 @@ oinv_lattice = np.linalg.inv(lattice).T
 cartesian = True
 for ll in lines:
     # convert to fractional if given in cartesian
-    if ll.strip().startswith('atom '):
+    if ll.strip().startswith("atom "):
         atom_pos = np.array([float(ss) for ss in ll.split()[1:4]])
         atom_sym = ll.split()[4]
         atom_pos_frac = np.dot(oinv_lattice, atom_pos)
         atoms_frac.append(list(atom_pos_frac))
         symbols.append(ll.split()[4])
-    if ll.strip().startswith('atom_frac'):
+    if ll.strip().startswith("atom_frac"):
         atoms_frac.append([float(ss) for ss in ll.split()[1:4]])
         symbols.append(ll.split()[4])
         cartesian = False
@@ -77,27 +78,27 @@ for ll in lines:
 
 olattice = np.array(olattice)
 
-print(f'{len(atoms_frac)} positions parsed from {ofile}')
+print(f"{len(atoms_frac)} positions parsed from {ofile}")
 
-match_list= []
+match_list = []
 norm = np.linalg.norm
-print(f'Compare the supercells')
+print(f"Compare the supercells")
 for ii, tdep_line in enumerate(pos_lines):
-    tdep_pos = np.array([ float(ll) for ll in tdep_line.split()[0:3]])
+    tdep_pos = np.array([float(ll) for ll in tdep_line.split()[0:3]])
     for jj, opos in enumerate(atoms_frac):
         if (norm(opos - tdep_pos)) < args.tol:
             if args.verbose:
-                print(f'Candidate pair:  {ii} and {jj}')
-                print(f'  Norm:          {(norm(opos - tdep_pos))}')
+                print(f"Candidate pair:  {ii} and {jj}")
+                print(f"  Norm:          {(norm(opos - tdep_pos))}")
             #
             match_list.append((ii, jj))
 #
-print(f'  Pairs matched: {len(match_list)}')
+print(f"  Pairs matched: {len(match_list)}")
 if args.verbose:
-    print(f'These are the matches:')
+    print(f"These are the matches:")
     for match in match_list:
-        print(f'  {match}')
+        print(f"  {match}")
 
-with open(args.filename, 'wb') as f:
+with open(args.filename, "wb") as f:
     pickle.dump(match_list, f)
-print(f'List with the matches pickled to {args.filename}')
+print(f"List with the matches pickled to {args.filename}")
