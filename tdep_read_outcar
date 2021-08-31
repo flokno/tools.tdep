@@ -31,8 +31,12 @@ class Data:
 
     def write_loto(self, file: str = "outfile.lotosplitting", fmt: str = "% 15.8f"):
         """Write outfile.lotosplitting"""
-        assert self.epsilon is not None
-        assert self.born_charges is not None
+        if self.epsilon is None:
+            typer.echo("NO DIELECTRIC TENSOR.")
+            raise typer.Abort()
+        if self.born_charges is None:
+            typer.echo("NO DIELECTRIC TENSOR.")
+            raise typer.Abort()
 
         repr = np.concatenate([self.epsilon[None, :], self.born_charges]).reshape(-1, 3)
 
@@ -107,7 +111,7 @@ def main(file: Path = "OUTCAR", verbose: bool = False):
 
     if not data.finished:
         typer.echo("TIMINGS NOT FOUND, OUTPUT FILE BROKEN?")
-        typer.Exit()
+        raise typer.Abort()
 
     typer.echo("Save data to file")
     data.write()
