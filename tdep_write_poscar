@@ -7,7 +7,7 @@ from ase.io import read
 parser = argpars(description="Read geometry and write is as TDEP infile")
 parser.add_argument("geom", type=str, help="geometry input file")
 parser.add_argument("--force", action="store_true", help="force overwrite")
-parser.add_argument("-fn", "--filename", type=str, default="infile.ucposcar")
+parser.add_argument("-o", "--outfile", type=str, default="infile.ucposcar")
 parser.add_argument("--format", default="aims")
 args = parser.parse_args()
 
@@ -15,7 +15,7 @@ print(f"Read {args.geom}")
 atoms = read(args.geom, format=args.format)
 
 write_settings = {"format": "vasp", "direct": True, "vasp5": True}
-atoms.write(args.filename, **write_settings)
+atoms.write(args.outfile, **write_settings)
 
-print(f".. written to {args.filename}")
+print(f".. written to {args.outfile}")
 
