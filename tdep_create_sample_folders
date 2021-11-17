@@ -1,0 +1,27 @@
+#! /usr/bin/env python3
+
+import shutil
+from pathlib import Path
+from typing import List
+
+import typer
+
+
+def main(files: List[Path], folder: str = "sample", outfile: str = "geometry.in"):
+    typer.echo(files)
+
+    typer.echo(f"Store {len(files)} file(s) to folders")
+
+    for ii, file in enumerate(files):
+        fol = Path(folder + f".{ii+1:03d}")
+        fol.mkdir(exist_ok=True)
+
+        typer.echo(f".. move file {ii+1:3d}: {str(file)} to {fol / outfile}")
+
+        shutil.move(file, fol / outfile)
+
+    typer.echo("done.")
+
+
+if __name__ == "__main__":
+    typer.run(main)
