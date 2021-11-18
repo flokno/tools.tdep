@@ -19,9 +19,8 @@ def main(files: List[Path], format: str = "aims-output"):
 
     with open(outfile_forces, "w") as ff, open(outfile_positions, "w") as fp:
         for ii, file in enumerate(files):
-            typer.echo(f".. parse file {ii:3d}: {str(file)}")
+            typer.echo(f".. parse file {ii+1:3d}: {str(file)}")
             atoms = read(file, format=format)
-            print(f"Write pos, force for atom {ii}")
             positions = atoms.get_scaled_positions()
             forces = atoms.get_forces()
             for (pos, force) in zip(positions, forces):
@@ -45,7 +44,7 @@ def main(files: List[Path], format: str = "aims-output"):
     typer.echo(f".. meta info written to {outfile_meta}")
 
     with open(outfile_stat, "w") as f:
-        for ii in range(n_atoms * n_steps):
+        for _ in range(n_steps):
             f.write("0 0 0 0 0 0 0 0 0 0 0 0 0\n")
     typer.echo(f".. stat. info written to {outfile_meta}")
 

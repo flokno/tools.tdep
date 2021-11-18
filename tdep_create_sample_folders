@@ -7,7 +7,12 @@ from typing import List
 import typer
 
 
-def main(files: List[Path], folder: str = "sample", outfile: str = "geometry.in"):
+def main(
+    files: List[Path],
+    folder: str = "sample",
+    outfile: str = "geometry.in",
+    control: Path = None,
+):
     typer.echo(files)
 
     typer.echo(f"Store {len(files)} file(s) to folders")
@@ -19,6 +24,10 @@ def main(files: List[Path], folder: str = "sample", outfile: str = "geometry.in"
         typer.echo(f".. move file {ii+1:3d}: {str(file)} to {fol / outfile}")
 
         shutil.move(file, fol / outfile)
+
+        if control is not None:
+            typer.echo(f".. move {control} to {fol}")
+            shutil.copy(control, fol)
 
     typer.echo("done.")
 
