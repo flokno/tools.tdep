@@ -49,6 +49,9 @@ def main(
     if total:
         ax.fill_between(x, y)
     else:
+        ax.plot(x, y, c="k")
+        labels.insert(0, "total")
+
         y = np.zeros_like(y)
 
         for ii, col in enumerate(ys):
@@ -57,12 +60,12 @@ def main(
 
     ax.set_xlabel("Freqcuency (THz)")
 
-    ax.legend(labels)
+    ax.legend(labels, frameon=False)
 
     tx = ax.twiny()
     for x in (ax, tx):
         x.set_xlim((0, xmax))
-        x.set_xticks(np.arange(0, xmax + 1, 2))
+        x.set_xticks(np.linspace(0, xmax + 1, 7))
     tx.set_xticklabels([f"{tick * to_invcm:.0f}" for tick in tx.get_xticks()])
     tx.set_xlabel("Omega (cm$^{-1}$)")
 

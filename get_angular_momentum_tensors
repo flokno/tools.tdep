@@ -7,7 +7,7 @@ import typer
 import xarray as xr
 
 
-def main(file: str):
+def main(file: str = "outfile.cumulative_kappa.hdf5"):
     typer.echo(f"Read {file}")
 
     with h5.File(file) as f:
@@ -19,7 +19,7 @@ def main(file: str):
     angular_momentum_tensors = np.zeros([len(groups), 3, 3])
 
     for ii, group in enumerate(sorted(groups)):
-        ds = xr.load_dataset("outfile.cumulative_kappa.hdf5", group=group)
+        ds = xr.load_dataset(file, group=group)
         temperatures[ii] = float(ds.temperature)
         angular_momentum_tensors[ii] = np.asfarray(ds.angular_momentum_tensor)
 
