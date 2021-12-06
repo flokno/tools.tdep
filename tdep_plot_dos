@@ -54,7 +54,7 @@ def main(
 
         y = np.zeros_like(y)
 
-        for ii, col in enumerate(ys):
+        for _, col in enumerate(ys):
             ax.fill_between(x, y, y + col)
             y += col
 
