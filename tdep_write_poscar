@@ -1,21 +1,37 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
-from argparse import ArgumentParser as argpars
-
+import typer
 from ase.io import read
 
-parser = argpars(description="Read geometry and write is as TDEP infile")
-parser.add_argument("geom", type=str, help="geometry input file")
-parser.add_argument("--force", action="store_true", help="force overwrite")
-parser.add_argument("-o", "--outfile", type=str, default="infile.ucposcar")
-parser.add_argument("--format", default="aims")
-args = parser.parse_args()
-
-print(f"Read {args.geom}")
-atoms = read(args.geom, format=args.format)
+_infile_ucposcar = "infile.ucposcar"
+_infile_ssposcar = "infile.ssposcar"
 
 write_settings = {"format": "vasp", "direct": True, "vasp5": True}
-atoms.write(args.outfile, **write_settings)
 
-print(f".. written to {args.outfile}")
 
+def _convert_file(file: str, outfile: str, format: str = "aims"):
+    """Convert geometry input file"""
+    typer.echo(f".. read {file}")
+
+    atoms = read(file, format=format)
+    atoms.write(outfile, **write_settings)
+
+    typer.echo(f"--> written to {outfile}")
+
+
+def main(
+    primitive: str = typer.Option(..., "--primitive", "-pc"),
+    supercell: str = typer.Option(..., "--supercell", "-sc"),
+    format: str = "aims",
+):
+    """Convert primitive and supercell to tdep/vasp format"""
+    typer.echo("Convert structure infiles")
+
+    if primitive:
+        _convert_file(primitive, outfile=_infile_ucposcar, format=format)
+    if supercell:
+        _convert_file(supercell, outfile=_infile_ssposcar, format=format)
+
+
+if __name__ == "__main__":
+    typer.run(main)
