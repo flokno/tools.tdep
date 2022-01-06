@@ -10,6 +10,8 @@ import typer
 sns.set_context("paper", font_scale=1.7)
 to_invcm = 33.356
 
+dict_xyz = {0: "x", 1: "y", 2: "z"}
+
 
 def get_canvas():
     fig, ax = plt.subplots()
@@ -29,6 +31,7 @@ def main(
 
     # template output file name
     outfile = file.stem
+    label = dict_xyz.get(angmom_component, "all")
 
     # read data
     with h5.File(file) as f:
@@ -37,12 +40,11 @@ def main(
         q_ticks = np.array(f["q_ticks"])
         q_ticklabels = f.attrs["q_tick_labels"].decode().split()
         if angmom:
-            outfile += "_angmon"
+            outfile += f"_angmon_{label}"
             if not matrix:
                 if 0 <= angmom_component <= 2:
-                    zs = np.array(f["angular_momentum_vector_on_path"])[
-                        ..., angmom_component
-                    ]
+                    ii = angmom_component
+                    zs = np.array(f["angular_momentum_vector_on_path"])[..., ii]
                 else:
                     zs = np.array(f["angular_momentum_vector_on_path_norm"])
             else:
@@ -69,7 +71,7 @@ def main(
         if matrix:
             ax.set_title("Angular momentum matrix norm")
         else:
-            ax.set_title(f"Angular momentum vector component {angmom_component}")
+            ax.set_title(f"Angular momentum vector component {label}")
 
     ax.set_xticks(q_ticks)
     ax.set_xticklabels(q_ticklabels)
