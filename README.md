@@ -4,6 +4,7 @@ tools.tdep
 ![python](https://img.shields.io/badge/python-3.6--3.10-lightgrey.svg?style=flat-square)
 ![license](https://img.shields.io/pypi/l/son.svg?color=red&style=flat-square)
 [![code style](https://img.shields.io/badge/code%20style-black-202020.svg?style=flat-square)](https://github.com/ambv/black)
+![build status](https://app.travis-ci.com/flokno/tools.tdep.svg?branch=master)
 
 These are a bunch of scripts and tools that facilitate working with the [TDEP method](http://ollehellman.github.io/).
 
