@@ -8,6 +8,7 @@
 
 #.pyc files
 *.pyc
+*.egg-info
 
 # unnecessary output
 */*/RUN.*/*
