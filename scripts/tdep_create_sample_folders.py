@@ -6,7 +6,10 @@ from typing import List
 
 import typer
 
+app = typer.Typer()
 
+
+@app.command()
 def main(
     files: List[Path],
     base_folder: str = "samples",
@@ -34,4 +37,4 @@ def main(
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()

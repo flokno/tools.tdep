@@ -6,7 +6,10 @@ import numpy as np
 import typer
 import xarray as xr
 
+app = typer.Typer()
 
+
+@app.command()
 def main(file: str = "outfile.cumulative_kappa.hdf5"):
     typer.echo(f"Read {file}")
 
@@ -58,4 +61,4 @@ def main(file: str = "outfile.cumulative_kappa.hdf5"):
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()

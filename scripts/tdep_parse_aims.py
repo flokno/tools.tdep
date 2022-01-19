@@ -13,7 +13,10 @@ outfile_stat = "infile.stat"
 outfile_forces = "infile.forces"
 outfile_positions = "infile.positions"
 
+app = typer.Typer()
 
+
+@app.command()
 def main(files: List[Path], timestep: float = 1.0, format: str = "aims-output"):
     typer.echo(files)
 
@@ -70,4 +73,4 @@ def main(files: List[Path], timestep: float = 1.0, format: str = "aims-output"):
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()
