@@ -16,6 +16,10 @@ def get_canvas():
     return fig, ax
 
 
+app = typer.Typer()
+
+
+@app.command()
 def main(
     file: Path,
     total: bool = False,
@@ -74,4 +78,4 @@ def main(
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()

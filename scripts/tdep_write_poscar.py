@@ -19,6 +19,10 @@ def _convert_file(file: str, outfile: str, format: str = "aims"):
     typer.echo(f"--> written to {outfile}")
 
 
+app = typer.Typer()
+
+
+@app.command()
 def main(
     primitive: str = typer.Option(..., "--primitive", "-pc"),
     supercell: str = typer.Option(..., "--supercell", "-sc"),
@@ -34,4 +38,4 @@ def main(
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()

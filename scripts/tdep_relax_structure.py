@@ -22,6 +22,9 @@ _outfile_forceconstant = "outfile.forceconstant"
 _outfile_forceconstant_firstorder = "outfile.forceconstant_firstorder"
 
 
+app = typer.Typer()
+
+
 def _check_forceconstant(cwd: Path, verbose: bool = True) -> float:
     """check first-order FC and report size"""
     file = cwd / _outfile_forceconstant_firstorder
@@ -76,6 +79,7 @@ def _copy_results(folder: Path, root: Path, prefix: str = "outfile.*"):
         shutil.copy(file, root)
 
 
+@app.command()
 def main(
     rc2: float = _rc2,
     polar: bool = False,
@@ -121,4 +125,4 @@ def main(
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()

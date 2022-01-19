@@ -5,6 +5,8 @@ import typer
 
 outfile = "outfile.lotosplitting"
 
+app = typer.Typer()
+
 
 def diagonalize(array: np.ndarray) -> np.ndarray:
     return np.diag(np.diag(array))
@@ -15,6 +17,7 @@ def scalarize(array: np.ndarray) -> np.ndarray:
     return np.eye(len(array)) * trace / len(array)
 
 
+@app.command()
 def main(file):
     """Diagonalize the Born charges and make everything isotropic (scalar)"""
     typer.echo(f"Read dielectric tensor and Born charges from {file}")
@@ -54,4 +57,4 @@ def main(file):
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()

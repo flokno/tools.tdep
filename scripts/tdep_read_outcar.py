@@ -13,6 +13,8 @@ timing_match = "Total CPU time used (sec):"
 epsilon_match = "MACROSCOPIC STATIC DIELECTRIC TENSOR (including local field effects "
 dimension_match = "Dimension of arrays:"
 
+app = typer.Typer()
+
 
 @dataclass
 class Data:
@@ -44,6 +46,7 @@ class Data:
         np.savetxt(file, repr, fmt=fmt)
 
 
+@app.command()
 def main(file: Path = "OUTCAR", verbose: bool = False):
     typer.echo(f"Read VASP output from {file}")
 
@@ -118,4 +121,4 @@ def main(file: Path = "OUTCAR", verbose: bool = False):
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()
