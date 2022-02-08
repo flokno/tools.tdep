@@ -85,7 +85,7 @@ def main(
     polar: bool = False,
     logfile: str = _logfile,
     base_folder: str = "iter",
-    maxiter: int = 30,
+    maxiter: int = 100,
 ):
     """iteratively run extract_forceconstant"""
     typer.echo("Start optimization")
@@ -99,8 +99,8 @@ def main(
 
     # run once to get starting point
     cwd = Path(".")
-    kw = {"cwd": cwd, "rc2": rc2, "polar": polar, "logfile": cwd / logfile}
-    _extract_forceconstants(**kw)
+    kw = {"rc2": rc2, "polar": polar, "logfile": cwd / logfile}
+    _extract_forceconstants(cwd, **kw)
 
     root = cwd
 
@@ -111,7 +111,7 @@ def main(
         folder.mkdir(exist_ok=True)
 
         _copy_input_files(cwd.absolute(), folder.absolute())
-        _extract_forceconstants(folder)
+        _extract_forceconstants(folder, **kw)
         norm = _check_forceconstant(folder)
         if norm < 1e-21:
             typer.echo(f"--> converged with |FC| = {norm:.4e}. Break.")
