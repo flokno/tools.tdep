@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-import imp
 from collections import namedtuple
 from pathlib import Path
 
