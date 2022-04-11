@@ -22,7 +22,7 @@ def main(
     typer.echo(f"Store {len(files)} file(s) to folders")
 
     for ii, file in enumerate(files):
-        fol = Path(base_folder) / (folder + f".{ii+1:03d}")
+        fol = Path(base_folder) / (folder + f".{ii+1:05d}")
         fol.mkdir(exist_ok=True, parents=True)
 
         typer.echo(f".. move file {ii+1:3d}: {str(file)} to {fol / outfile}")
