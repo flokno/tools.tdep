@@ -3,6 +3,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import rich
 import typer
 from matplotlib.colors import LogNorm, Normalize
@@ -69,15 +70,20 @@ def main(
     min_intensity: float = 1e-4,
     linear: bool = False,
     dispersion: Path = None,
+    dispersion_neutron: Path = None,
 ):
 
     # read data
     x, y, gz, xt, xl, yl = get_arrays(file)
     if dispersion is not None:
         _, ys_dispersion = get_arrays_dispersion(dispersion)
+    else:
+        ys_dispersion = None
+
+    echo(x)
 
     # integrate intensity in energy
-    n_bands = np.trapz(gz, x=y, axis=0).mean()
+    n_bands = int(np.trapz(gz, x=y, axis=0).mean())
     echo(f".. no. of bands:      {n_bands:.2f}")
 
     if not ylim:
@@ -93,7 +99,15 @@ def main(
     if max_intensity < 1:
         gz[gz > max_intensity] = max_intensity
 
-    fig, _ = plot(x, y, gz, xt, xl, yl, ylim, linear, ys_dispersion)
+    fig, ax = plot(x, y, gz, xt, xl, yl, ylim, linear, ys_dispersion)
+
+    if dispersion_neutron is not None:
+        echo(".. try to superimpose neutron data")
+        df = pd.read_csv(dispersion_neutron)
+        echo(df)
+        echo(n_bands)
+        for ii in range(n_bands):
+            ax.scatter(x=df.q_tdep, y=df[str(ii+1)], s=3, color="C3")
 
     # talk
     echo(f".. ylim is            {ylim:.4f} THz")
