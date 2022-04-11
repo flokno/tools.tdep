@@ -24,16 +24,19 @@ app = typer.Typer()
 
 @app.command()
 def main(
-    primitive: str = typer.Option(..., "--primitive", "-pc"),
-    supercell: str = typer.Option(..., "--supercell", "-sc"),
+    file: str = None,
+    primitive: str = typer.Option(None, "--primitive", "-pc"),
+    supercell: str = typer.Option(None, "--supercell", "-sc"),
     format: str = "aims",
 ):
     """Convert primitive and supercell to tdep/vasp format"""
     typer.echo("Convert structure infiles")
 
-    if primitive:
+    if file is not None:
+        _convert_file(file, outfile="POSCAR", format="aims")
+    if primitive is not None:
         _convert_file(primitive, outfile=_infile_ucposcar, format=format)
-    if supercell:
+    if supercell is not None:
         _convert_file(supercell, outfile=_infile_ssposcar, format=format)
 
 
