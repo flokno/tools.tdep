@@ -59,17 +59,25 @@ def _extract_forceconstants(
         f.write(stdout)
 
 
-def _copy_input_files(folder_ref: Path, folder_new: Path, mkdir=True):
-    """copy input files to new folder"""
-    if mkdir:
-        folder_new.mkdir(exist_ok=True, parents=True)
+def _link_input_files(cwd: Path, folder: Path, mkdir=True):
+    """link input files to new folder"""
+    if mkdir and not folder.exists():
+        folder.mkdir(exist_ok=True, parents=True)
 
     for file in _infiles:
-        shutil.copy(folder_ref / file, folder_new)
+        file_new = folder / file
+        if not file_new.exists():
+            file_new.symlink_to(cwd / file)
+
+
+def _copy_structure_files(folder_old: Path, folder_new: Path, mkdir=True):
+    """copy/link input files to new folder"""
+    if mkdir and not folder_new.exists():
+        folder_new.mkdir(exist_ok=True, parents=True)
 
     # structures
-    shutil.copy(folder_ref / _outfile_ucposcar, folder_new / _infile_ucposcar)
-    shutil.copy(folder_ref / _outfile_ssposcar, folder_new / _infile_ssposcar)
+    shutil.copy(folder_old / _outfile_ucposcar, folder_new / _infile_ucposcar)
+    shutil.copy(folder_old / _outfile_ssposcar, folder_new / _infile_ssposcar)
 
 
 def _copy_results(folder: Path, root: Path, prefix: str = "outfile.*"):
@@ -84,7 +92,8 @@ def main(
     rc2: float = _rc2,
     polar: bool = False,
     logfile: str = _logfile,
-    base_folder: str = "iter",
+    base_folder: str = "relax_firstorder",
+    iter_folder: str = "iter",
     maxiter: int = 100,
 ):
     """iteratively run extract_forceconstant"""
@@ -98,25 +107,29 @@ def main(
         assert Path(file).exists()
 
     # run once to get starting point
-    cwd = Path(".")
+    root = Path().absolute()
+    cwd = Path(base_folder).absolute()
+    _link_input_files(root, cwd)
+    for file in _infiles_structure:
+        shutil.copy(file, cwd)
     kw = {"rc2": rc2, "polar": polar, "logfile": cwd / logfile}
     _extract_forceconstants(cwd, **kw)
 
-    root = cwd
-
     # relaxation loop
+    folder_old = cwd
     for ii in range(maxiter):
         typer.echo(f"Iteration {ii:5d}")
-        folder = root / (base_folder + f".{ii:03d}")
-        folder.mkdir(exist_ok=True)
+        folder = cwd / (iter_folder + f".{ii:03d}")
+        folder.mkdir(exist_ok=True, parents=True)
 
-        _copy_input_files(cwd.absolute(), folder.absolute())
+        _link_input_files(cwd, folder.absolute())
+        _copy_structure_files(folder_old, folder.absolute())
         _extract_forceconstants(folder, **kw)
         norm = _check_forceconstant(folder)
         if norm < 1e-21:
             typer.echo(f"--> converged with |FC| = {norm:.4e}. Break.")
             break
-        cwd = folder
+        folder_old = folder
 
     typer.echo("--> Copy final results to root folder")
     _copy_results(folder, root)
