@@ -21,6 +21,7 @@ app = typer.Typer()
 
 @app.command()
 def main(files: List[Path], timestep: float = 1.0, format: str = "aims-output"):
+    """Parse DFT force/stress calculations via ase.io.read"""
     echo(files)
 
     echo(f"Parse {len(files)} file(s)")
