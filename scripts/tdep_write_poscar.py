@@ -3,6 +3,7 @@
 import typer
 from ase.io import read
 
+
 _infile_ucposcar = "infile.ucposcar"
 _infile_ssposcar = "infile.ssposcar"
 
@@ -25,7 +26,7 @@ app = typer.Typer()
 @app.command()
 def main(
     file: str = None,
-    primitive: str = typer.Option(None, "--primitive", "-pc"),
+    primitive: str = typer.Option(None, "--unitcell", "-uc"),
     supercell: str = typer.Option(None, "--supercell", "-sc"),
     format: str = "aims",
 ):

@@ -9,6 +9,7 @@ import typer
 from ase import units
 from ase.io import read
 
+
 outfile_meta = "infile.meta"
 outfile_stat = "infile.stat"
 outfile_forces = "infile.forces"
@@ -58,10 +59,9 @@ def main(files: List[Path], timestep: float = 1.0, format: str = "aims-output"):
                 et, ep, ek = energy_total, energy_potential, energy_kinetic
                 t, p, sx, sy, sz, sxz, syz, sxy = temperature, pressure, *stress
                 fs.write(f"{ii+1:7d} {ii*dt:9.3f} {et:23.15e} {ep:23.15e} {ek:23.15e} ")
-                fs.write(f"{t:9.3f} {p:9.3f} ")
-                fs.write(
-                    f"{sx:9.3f} {sy:9.3f} {sz:9.3f} {sxz:9.3f} {syz:9.3f} {sxy:9.3f}"
-                )
+                fmt = "15.9f"
+                fs.write(f"{t:{fmt}} {p:{fmt}} ")
+                fs.write(" ".join(f"{s:{fmt}}" for s in (sx, sy, sz, sxz, syz, sxy)))
                 fs.write("\n")
                 n_steps += 1
                 n_atoms = len(atoms)
