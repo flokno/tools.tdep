@@ -6,6 +6,7 @@ from typing import List
 
 import typer
 
+
 app = typer.Typer()
 
 
@@ -16,6 +17,7 @@ def main(
     folder: str = "sample",
     outfile: str = "geometry.in",
     control: Path = None,
+    force: bool = False,
 ):
     typer.echo(files)
 
@@ -23,7 +25,7 @@ def main(
 
     for ii, file in enumerate(files):
         fol = Path(base_folder) / (folder + f".{ii+1:05d}")
-        fol.mkdir(exist_ok=True, parents=True)
+        fol.mkdir(exist_ok=force, parents=True)
 
         typer.echo(f".. move file {ii+1:3d}: {str(file)} to {fol / outfile}")
 
