@@ -41,7 +41,7 @@ def main(
     file_stress_dft: str = "outfile.stress_dft",
     file_stress_fc2: str = "outfile.stress_fc2",
     file_stress_fc3: str = "outfile.stress_fc3",
-    file_stress_residual: str = "outfile.stress_residual",
+    file_stress_res: str = "outfile.stress_res",
     file_stress_qha: str = "outfile.stress_qha.csv",
     outfile_unitcell: str = "outfile.ucposcar.new_cell",
     outfile_supercell: str = "outfile.ssposcar.new_cell",
@@ -62,7 +62,7 @@ def main(
         file_stress_dft: DFT stress p_DFT
         file_stress_fc2: stress from 2nd order FC (--> kinetic)
         file_stress_fc3: stress from 3rd order FC
-        file_stress_residual: residual stress p_DFT - p_FC
+        file_stress_res: residual stress p_DFT - p_FC
         file_stress_qha: analytic QHA stress vs. temperature
         outfile_deformation: write deformation tensor here
         format: for ase.io.read
@@ -90,7 +90,7 @@ def main(
     p_dft, p_dft_std, p_dft_err = np.loadtxt(file_stress_dft)  # 6x1 Voigt vector
     p_fc2, p_fc2_std, p_fc2_err = np.loadtxt(file_stress_fc2)  # 6x1 Voigt vector
     p_fc3, p_fc3_std, p_fc3_err = np.loadtxt(file_stress_fc3)  # 6x1 Voigt vector
-    p_res, p_res_std, p_res_err = np.loadtxt(file_stress_residual)  # 6x1 Voigt vector
+    p_res, p_res_std, p_res_err = np.loadtxt(file_stress_res)  # 6x1 Voigt vector
     p_ext = pressure * np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
 
     # current deformation
