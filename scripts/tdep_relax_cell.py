@@ -1,7 +1,5 @@
 #! /usr/bin/env python3
 
-import shutil
-import subprocess as sp
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +18,10 @@ from ase.units import GPa, kB
 
 echo = rich.print
 
+_len = 26
+_infile_uc = typer.Option("infile.ucposcar", "--unitcell", "-uc")
+_infile_sc = typer.Option("infile.ssposcar", "--supercell", "-sc")
+
 
 def _array_to_str(array, decimals=6):
     rep = ", ".join(f"{el:{decimals+3}.{decimals}f}" for el in array)
@@ -33,9 +35,9 @@ app = typer.Typer()
 def main(
     temperature: float,
     pressure: float = 0,
-    scale: float = 1.0,
-    file_unitcell: str = typer.Option("infile.ucposcar", "--unitcell", "-uc"),
-    file_supercell: str = typer.Option("infile.ssposcar", "--supercell", "-sc"),
+    # scale: float = 1.0,
+    file_unitcell: str = _infile_uc,
+    file_supercell: str = _infile_sc,
     file_unitcell_init: str = "infile.ucposcar.init",
     file_compliances: str = "outfile.compliance_tensor",
     file_stress_dft: str = "outfile.stress_dft",
@@ -54,7 +56,6 @@ def main(
     Args:
         temperature: target temperature
         pressure: target pressure p_ext (in GPa)
-        scale: scale the step with this factor
         file_unitcell: unitcell of the structure
         file_supercell: supercell of the structure
         file_unitcell_init: initial unitcell --> deformation tensor
@@ -79,12 +80,18 @@ def main(
     echo("Start cell optimization")
 
     # read input files
+    echo(f".. read         unitcell from {file_unitcell}")
     primitive = read(file_unitcell, format=format)
+    echo(f".. read        supercell from {file_supercell}")
     supercell = read(file_supercell, format=format)
     if Path(file_unitcell_init).exists():
+        echo(f".. read initial unitcell from {file_unitcell_init}")
         primitive_initial = read(file_unitcell_init, format=format)
     else:
         primitive_initial = primitive.copy()
+
+    na = len(primitive)
+    vol = primitive.get_volume()
 
     s_ij = np.loadtxt(file_compliances).round(decimals=decimals)  # 6x6 Voigt matrix
     p_dft, p_dft_std, p_dft_err = np.loadtxt(file_stress_dft)  # 6x1 Voigt vector
@@ -93,7 +100,7 @@ def main(
     p_res, p_res_std, p_res_err = np.loadtxt(file_stress_res)  # 6x1 Voigt vector
     p_ext = pressure * np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
 
-    # current deformation
+    # get current deformation w.r.t. initial cell
     a0, an = primitive_initial.cell, primitive.cell
     Fn = np.linalg.solve(a0, an).round(decimals=decimals)
     # supercel deformation
@@ -106,14 +113,13 @@ def main(
     ds_qha = xr.DataArray(df_qha)
     p_qha = ds_qha.interp(temperature=temperature, method="cubic").data
 
-    p_opt = p_res + p_qha - p_ext
+    # stress for optimization
+    p_tdep = p_res + p_qha
+    p_opt = p_tdep - p_ext
 
-    # apply deformation (PK1)
+    # apply deformation to stress (essentially PK1 stress)
     iFnt = np.linalg.inv(Fn).T
     p_opt_def = full_3x3_to_voigt_6_stress(voigt_6_to_full_3x3_stress(p_opt) @ iFnt)
-
-    na = len(primitive)
-    vol = primitive.get_volume()
 
     echo(f"..            cell volume:  {primitive.get_volume():.3f} AA")
     echo(f"..     target temperature:  {temperature} K")
@@ -122,32 +128,35 @@ def main(
     echo()
     echo("Initial cell a_0:")
     for a in primitive_initial.cell:
-        echo(28 * " " + _array_to_str(a))
+        echo(_len * " " + _array_to_str(a))
 
     echo("Current cell a_n:")
     for a in primitive.cell:
-        echo(28 * " " + _array_to_str(a))
+        echo(_len * " " + _array_to_str(a))
 
     echo("Current deformation F_n:")
     for a in Fn:
-        echo(28 * " " + _array_to_str(a))
+        echo(_len * " " + _array_to_str(a))
 
-    empty = 9 * " "
+    empty = 6 * " "
     echo(35 * " " + empty.join(["xx", "yy", "zz", "yz", "xz", "xy"]))
-    echo(f"..           DFT pressure:  {_array_to_str(p_dft)} GPa")
-    echo(f"..           FC2 pressure:  {_array_to_str(p_fc2)} GPa")
-    echo(f"..           FC3 pressure:  {_array_to_str(p_fc3)} GPa")
-    echo(f"..      residual pressure:  {_array_to_str(p_res)} GPa")
-    echo(f"..     std. dev. pressure:  {_array_to_str(p_res_std)} GPa")
-    echo(f"..     std. err. pressure:  {_array_to_str(p_res_err)} GPa")
-    echo(f"..           QHA pressure:  {_array_to_str(p_qha)} GPa")
-    echo(f"..      external pressure:  {_array_to_str(p_ext)} GPa")
-    echo(f"-->       target pressure:  {_array_to_str(p_opt)} GPa")
-    echo(f"-->     deformed pressure:  {_array_to_str(p_opt_def)} GPa")
+    echo(f"..           DFT stress:  {_array_to_str(p_dft)} GPa")
+    echo(f"..           FC2 stress:  {_array_to_str(p_fc2)} GPa")
+    echo(f"..       DFT-FC2 stress:  {_array_to_str(p_dft-p_fc2)} GPa")
+    echo(f"..           FC3 stress:  {_array_to_str(p_fc3)} GPa")
+    echo(f"..      residual stress:  {_array_to_str(p_res)} GPa")
+    echo(f"..           QHA stress:  {_array_to_str(p_qha)} GPa")
+    echo(f"-->         TDEP stress:  {_array_to_str(p_tdep)} GPa")
+    echo(f"..     std. dev. stress:  {_array_to_str(p_res_std)} GPa")
+    echo(f"..     std. err. stress:  {_array_to_str(p_res_err)} GPa")
+    echo(f"..      95% err. stress:  {_array_to_str(1.96*p_res_err)} GPa")
+    echo(f"..      external stress:  {_array_to_str(p_ext)} GPa")
+    echo(f"-->       target stress:  {_array_to_str(p_opt)} GPa")
+    echo(f"-->     deformed stress:  {_array_to_str(p_opt_def)} GPa")
 
-    echo("..            compliances:")
+    echo("..          compliances:")
     for s in s_ij:
-        echo(28 * " " + _array_to_str(s))
+        echo(_len * " " + _array_to_str(s))
 
     # predict strain and deformation
     eps = (-s_ij @ p_opt_def).round(decimals=decimals)
@@ -155,23 +164,23 @@ def main(
     deps = (-s_ij @ p_res_err).round(decimals=decimals)
 
     echo()
-    echo(f"-->      resulting strain:  {_array_to_str(eps)}")
-    if scale != 1.0:
-        echo(f"**      scale strain with:  {scale}")
-        eps *= scale
-        echo(f"-->         scaled strain:  {_array_to_str(eps)}")
+    echo(f"-->    resulting strain:  {_array_to_str(eps)}")
+    # if scale != 1.0:
+    #     echo(f"**      scale strain with:  {scale}")
+    #     eps *= scale
+    #     echo(f"-->         scaled strain:  {_array_to_str(eps)}")
 
     # fkdev: old naive deformation
-    F = voigt_6_to_full_3x3_strain(eps)
+    # F = voigt_6_to_full_3x3_strain(eps)
+
+    # deformation update using PK1 stress
     dF = voigt_6_to_full_3x3_strain(eps) - np.eye(3)
     dF_err = voigt_6_to_full_3x3_strain(deps) - np.eye(3)
-
-    # deformation update
     F = Fn + dF
 
     echo("--> resulting deformation: ")
     for f in F:
-        echo(28 * " " + _array_to_str(f))
+        echo(_len * " " + _array_to_str(f))
 
     new_primitive = primitive.copy()
     _new_cell = (an + a0 @ dF).round(decimals=decimals)
@@ -191,19 +200,19 @@ def main(
 
     echo("Cell before a_n:")
     for a in primitive.cell:
-        echo(28 * " " + _array_to_str(a))
+        echo(_len * " " + _array_to_str(a))
 
     echo("Cell after a_n+1:")
     for a in new_primitive.cell:
-        echo(28 * " " + _array_to_str(a))
+        echo(_len * " " + _array_to_str(a))
 
     echo("Cell change a_n+1 - a_n:")
     for a in new_primitive.cell - primitive.cell:
-        echo(28 * " " + _array_to_str(a))
+        echo(_len * " " + _array_to_str(a))
 
     echo("Cell error da_n+1:")
     for a in new_cell_err:
-        echo(28 * " " + _array_to_str(a))
+        echo(_len * " " + _array_to_str(a))
 
     echo(f"..            cell volume:  {new_primitive.get_volume():.3f} AA")
     echo(f"..       cell volume err.:  {np.linalg.det(new_cell_err):.6f} AA")
@@ -214,7 +223,7 @@ def main(
     echo(f".. write new supercell to:  {outfile_supercell}")
     new_supercell.write(outfile_supercell, format=format, direct=True)
 
-    echo(f".. write deformation to {outfile_deformation}")
+    echo(f"..   write deformation to:  {outfile_deformation}")
     np.savetxt(outfile_deformation, F)
 
     echo("Done.")

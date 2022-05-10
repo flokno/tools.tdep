@@ -3,6 +3,7 @@
 import numpy as np
 import typer
 
+
 outfile = "outfile.lotosplitting"
 
 app = typer.Typer()
@@ -18,7 +19,7 @@ def scalarize(array: np.ndarray) -> np.ndarray:
 
 
 @app.command()
-def main(file):
+def main(file: str = "infile.lotosplitting"):
     """Diagonalize the Born charges and make everything isotropic (scalar)"""
     typer.echo(f"Read dielectric tensor and Born charges from {file}")
 
@@ -49,8 +50,9 @@ def main(file):
     new_bec_diag = np.concatenate([eps_diag[None, :], bec_diag]).reshape(-1, 3)
     new_bec_scalar = np.concatenate([eps_scalar[None, :], bec_scalar]).reshape(-1, 3)
 
-    typer.echo(f".. save simplified BEC to {outfile}_scalar/diagonal")
+    typer.echo(f".. save   scalar BEC to {outfile}_scalar")
     np.savetxt(outfile + "_scalar", new_bec_scalar)
+    typer.echo(f".. save diagonal BEC to {outfile}_diagonal")
     np.savetxt(outfile + "_diagonal", new_bec_diag)
 
     typer.echo("done.")

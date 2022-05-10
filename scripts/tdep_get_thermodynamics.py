@@ -14,7 +14,6 @@ from tdeptools.hdf5 import (
     outfile_grid_dispersion,
     read_grid_dispersion,
 )
-from tdeptools.helpers import from_voigt
 from tdeptools.thermodynamics import (
     get_free_energy,
     get_heat_capacity,
