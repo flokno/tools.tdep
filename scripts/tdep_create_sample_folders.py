@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List
 
 import typer
+from rich import print as echo
 
 
 app = typer.Typer()
@@ -19,23 +20,23 @@ def main(
     control: Path = None,
     force: bool = False,
 ):
-    typer.echo(files)
+    echo(files)
 
-    typer.echo(f"Store {len(files)} file(s) to folders")
+    echo(f"Store {len(files)} file(s) to folders")
 
     for ii, file in enumerate(files):
         fol = Path(base_folder) / (folder + f".{ii+1:05d}")
         fol.mkdir(exist_ok=force, parents=True)
 
-        typer.echo(f".. move file {ii+1:3d}: {str(file)} to {fol / outfile}")
+        echo(f".. move file {ii+1:3d}: {str(file)} to {fol / outfile}")
 
         shutil.move(file, fol / outfile)
 
         if control is not None:
-            typer.echo(f".. move {control} to {fol}")
+            echo(f".. move {control} to {fol}")
             shutil.copy(control, fol)
 
-    typer.echo("done.")
+    echo("done.")
 
 
 if __name__ == "__main__":

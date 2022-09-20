@@ -115,7 +115,7 @@ def main(
 
     # stress for optimization
     p_tdep = p_res + p_qha
-    p_opt = p_tdep - p_ext
+    p_opt = p_tdep + p_ext
 
     # apply deformation to stress (essentially PK1 stress)
     iFnt = np.linalg.inv(Fn).T
