@@ -50,12 +50,14 @@ class Data:
 def main(file: Path = "OUTCAR", verbose: bool = False):
     typer.echo(f"Read VASP output from {file}")
 
+    natoms_matched = False
     with file.open() as f:
         for line in f:
             # dimensions
-            if natoms_match in line:
+            if natoms_match in line and not natoms_matched:
                 natoms = int(line[line.rfind("NIONS =") :].split("=")[-1].strip())
                 data = Data(natoms=natoms)
+                natoms_matched = True
 
             # Forces
             if forces_match in line:
@@ -109,7 +111,7 @@ def main(file: Path = "OUTCAR", verbose: bool = False):
 
             # is the calculation acutally finished?
             if timing_match in line:
-                typer.echo(f".. calculation was finished after {line.split()[5]} s")
+                typer.echo(f".. calculation was finished after {line.split()[5]}s")
                 data.finished = True
 
     if not data.finished:

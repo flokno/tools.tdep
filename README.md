@@ -8,6 +8,10 @@ tools.tdep
 
 These are a bunch of scripts and tools that facilitate working with the [TDEP method](http://ollehellman.github.io/).
 
+## Disclaimer
+
+This package is _highly_ experimental. Please reach out if you seriously want to use it.
+
 ## Installation
 
 - Clone the repository,
@@ -24,5 +28,4 @@ These are a bunch of scripts and tools that facilitate working with the [TDEP me
   - optionally, use a [virtual environment](https://docs.python.org/3/library/venv.html)
 - commit your changes, and push them to your fork,
 - open a pull request.
-
 
