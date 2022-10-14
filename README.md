@@ -10,7 +10,7 @@ These are a bunch of scripts and tools that facilitate working with the [TDEP me
 
 ## Disclaimer
 
-This package is _highly_ experimental. Please reach out if you seriously want to use it.
+This package is _highly_ experimental and can rely on unpublished TDEP features that are not found in the main repository. Please reach out if you seriously want to use it.
 
 ## Installation
 
