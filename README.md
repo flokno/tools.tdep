@@ -14,9 +14,11 @@ This package is _highly_ experimental and can rely on unpublished TDEP features 
 
 ## Installation
 
-- Clone the repository,
-- `cd` to the repository,
-- run `pip install .`
+The package can be installed via `pip`:
+
+```
+pip install https://github.com/flokno/tools.tdep/archive/master.zip
+```
 
 ## Develop
 
