@@ -17,11 +17,11 @@ echo = rich.print
 
 _file = Path("outfile.forceconstant")
 _file_primitive = Path("infile.ucposcar")
-_outfile_data = Path("fc_norms.csv")
-_outfile_plot = Path("fc_norms.pdf")
+_outfile_data = "fc_TAGs.csv"
+_outfile_plot = "fc_TAGs.pdf"
 
 
-def process_blocks(blocks: list, atoms: Atoms = None):
+def process_blocks(blocks: list, atoms: Atoms = None, trace: bool = False):
     """turn the FC blocks from TDEP into a Dataframe containing the norms per distance"""
     # sort data
     pair_indices = []  # indices in unit cell
@@ -48,7 +48,11 @@ def process_blocks(blocks: list, atoms: Atoms = None):
             pair_numbers.append(numbers)
             symbols = "-".join([chemical_symbols[ii] for ii in numbers])
             pair_symbols.append(symbols)
-            forceconstant_norms.append(np.linalg.norm(MM))
+            if trace:
+                measure = np.trace(MM)
+            else:
+                measure = np.linalg.norm(MM)
+            forceconstant_norms.append(measure)
 
     pair_indices = np.array(pair_indices)
     pair_numbers = np.array(pair_numbers)
@@ -74,19 +78,19 @@ def process_blocks(blocks: list, atoms: Atoms = None):
     return df
 
 
-app = typer.Typer()
+app = typer.Typer(pretty_exceptions_show_locals=True)
 
 
 @app.command()
 def main(
     file: Path = _file,
     file_primitive: Path = _file_primitive,
-    outfile_data: Path = _outfile_data,
-    outfile_plot: Path = _outfile_plot,
     plot: bool = True,
     log: bool = False,
+    trace: bool = False,
+    _asdf: str = _outfile_plot,
 ):
-    """Read forceconstants and write pair-resolved norm per distance/shell"""
+    """Read forceconstants and write pair-resolved norm or trace per distance/shell"""
     echo(f"Read primitive cell from {file_primitive}")
     atoms = read_ase(file_primitive, format="vasp")
 
@@ -98,12 +102,18 @@ def main(
     echo(f".. number of atoms:  {n_atoms}")
     echo(f".. realspace cutoff: {cutoff:.3f} AA")
 
-    df = process_blocks(blocks=blocks, atoms=atoms)
+    df = process_blocks(blocks=blocks, atoms=atoms, trace=trace)
 
     echo(f".. unique pairs per element: {df.symbols.unique()}")
 
     echo(df.head())
 
+    if trace:
+        tag = "trace"
+    else:
+        tag = "norm"
+
+    outfile_data = _outfile_data.replace("TAG", tag)
     echo(f".. write data to {outfile_data}")
     df.to_csv(outfile_data)
 
@@ -119,14 +129,20 @@ def main(
             ax2.plot(df_temp.shell_index, df_temp.fc_norm, marker="o", lw=0.5)
 
         for ax in (ax1, ax2):
-            ax.legend(symbols_unique)
+            ax.legend(symbols_unique, markerfirst=False, framealpha=0)
             if log:
                 ax.set_yscale("log")
 
+            ax.axhline(0, color="#313131", zorder=-1, lw=0.5)
+
         ax1.set_xlabel(r"Distance (${\rm \AA}$)")
         ax2.set_xlabel("Shell no. (1)")
-        ax1.set_ylabel(r"FC Norm (eV / ${\rm \AA}^2$)")
+        if trace:
+            ax1.set_ylabel(r"FC trace (eV / ${\rm \AA}^2$)")
+        else:
+            ax1.set_ylabel(r"FC Norm (eV / ${\rm \AA}^2$)")
 
+        outfile_plot = _outfile_plot.replace("TAG", tag)
         echo(f".. save plot to {outfile_plot}")
         fig.savefig(outfile_plot)
 
