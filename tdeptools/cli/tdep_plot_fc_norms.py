@@ -88,14 +88,13 @@ def main(
     plot: bool = True,
     log: bool = False,
     trace: bool = False,
-    _asdf: str = _outfile_plot,
 ):
     """Read forceconstants and write pair-resolved norm or trace per distance/shell"""
     echo(f"Read primitive cell from {file_primitive}")
     atoms = read_ase(file_primitive, format="vasp")
 
     echo(f"Read forceconstants from {file}")
-    n_atoms, cutoff, blocks = parse_forceconstant()
+    n_atoms, cutoff, blocks = parse_forceconstant(file=file)
 
     assert len(atoms) == n_atoms, "Check no. of atoms in primtive cell"
 
