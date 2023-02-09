@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import json
+import webbrowser
 from typing import Tuple
 
 import numpy as np
@@ -12,10 +13,17 @@ from ase.io import read
 echo = rich.print
 
 
+_url = "https://henriquemiranda.github.io/phononwebsite/phonon.html"
 infile_geometry = "infile.ucposcar"
 infile_dispersion = "outfile.dispersion_relations.hdf5"
 outfile_dispersion = "outfile.dispersion_relations.json"
 default_repetitions = [2, 2, 2]
+
+# REM:
+# * this solution to directly open the file is currently not working:
+# * https://github.com/henriquemiranda/phononwebsite/blob/gh-pages/scripts/phononwebsite.py
+# * https://github.com/henriquemiranda/phononwebsite/blob/b8fc28920d1aee999ecc345ed16b01d599430a65/phononweb/phononweb.py#L15
+
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
@@ -27,6 +35,7 @@ def main(
     outfile: str = outfile_dispersion,
     repetitions: Tuple[int, int, int] = default_repetitions,
     split_bands: float = typer.Option(0.0, help="split bands by this many cm^1"),
+    web: bool = typer.Option(False, help="open the webpage"),
     format: str = "vasp",
 ):
     """Convert dispersion relations into json file for
@@ -86,6 +95,12 @@ def main(
     echo(f".. dump data to {outfile}")
     with open(outfile_dispersion, "w") as f:
         json.dump(data, f, indent=1)
+
+    if web:
+        echo(f".. open {_url}")
+        echo(f'.. drag `{outfile}` to "Custom file: [Browse]"')
+        echo(".. (direct opening currently not supported)")
+        webbrowser.open(_url)
 
 
 if __name__ == "__main__":
