@@ -17,7 +17,7 @@ infile_dispersion = "outfile.dispersion_relations.hdf5"
 outfile_dispersion = "outfile.dispersion_relations.json"
 default_repetitions = [2, 2, 2]
 
-app = typer.Typer()
+app = typer.Typer(pretty_exceptions_show_locals=False)
 
 
 @app.command()
@@ -26,8 +26,12 @@ def main(
     file_geometry: str = infile_geometry,
     outfile: str = outfile_dispersion,
     repetitions: Tuple[int, int, int] = default_repetitions,
+    split_bands: float = typer.Option(0.0, help="split bands by this many cm^1"),
     format: str = "vasp",
 ):
+    """Convert dispersion relations into json file for
+    https://henriquemiranda.github.io/phononwebsite/phonon.html
+    """
     echo(f"Read geometry form {file_geometry}")
     atoms = read(infile_geometry, format=format)
 
@@ -52,6 +56,11 @@ def main(
     dim = (*eigenvectors.shape[:-1], len(atoms), 3, 2)
     dim
     eigenvectors.view(float).reshape(dim)
+
+    if split_bands > 1e-5:
+        echo(f"** split the bands artificially by {33.356 * split_bands} cm^-1")
+        split = split_bands * np.arange(ds.frequencies.data.shape[1])[None, :]
+        ds.frequencies.data += split
 
     # prepare data
     data = {
