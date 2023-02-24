@@ -13,8 +13,9 @@ from rich import print as echo
 from tdeptools.geometry import get_orthonormal_directions
 from tdeptools.physics import freq2amplitude
 from tdeptools.raman import intensity_isotropic, po_average
+from tdeptools.konstanter import lo_frequency_THz_to_icm
 
-_default_po_direction = [None, None, None]
+_default_po_direction = (None, None, None)
 
 key_intensity_raman = "intensity_raman"
 
@@ -31,17 +32,17 @@ def main(
     po_direction: Tuple[int, int, int] = _default_po_direction,
     temperature: float = 0.0,
     quantum: bool = True,
-    _iq: int = 0,
+    iq: int = 0,
 ):
     """Compute Raman activity per mode"""
 
     # activity
     echo(f".. read mode activity from {file_activity}")
-    df_activitiy = pd.read_csv(file_activity, comment="#")
-    echo(f".. active q-points: {df_activitiy.iq.unique()}")
-    echo(f".. select:          {df_activitiy.iq.unique()[_iq]}")
-    df_activitiy = df_activitiy[df_activitiy.iq == df_activitiy.iq.unique()[_iq]]
-    n_modes = len(df_activitiy)
+    df_activity = pd.read_csv(file_activity, comment="#")
+    echo(f".. active q-points: {df_activity.iq.unique()}")
+    echo(f".. select:          {df_activity.iq.unique()[iq]}")
+    df_activity = df_activity[df_activity.iq == df_activity.iq.unique()[iq]]
+    n_modes = len(df_activity)
     echo(f".. no. of modes:    {n_modes}")
 
     # dielectric
@@ -53,7 +54,7 @@ def main(
     assert n_tensors == 2 * n_modes, f"Please provide {2*n_modes} tensors for now."
 
     amplitudes = freq2amplitude(
-        df_activitiy.frequency, temperature=temperature, quantum=quantum
+        df_activity.frequency, temperature=temperature, quantum=quantum
     )
 
     # convention: Matrices are stores alternating between + and - displacement
@@ -77,13 +78,13 @@ def main(
         I_q[ii] = intensity_isotropic(I_ab)
 
     # add to dataframe
-    df_activitiy[key_intensity_raman] = I_q
+    df_activity[key_intensity_raman] = I_q
 
     echo(f".. write intensities to {outfile}")
-    df_activitiy.to_csv(outfile, index=None)
+    df_activity.to_csv(outfile, index=None)
 
     # PO?
-    if po_direction is not _default_po_direction:
+    if not (po_direction == _default_po_direction):
         echo(f".. compute PO intensity map for E_in = {po_direction}")
         echo(".. find orthonormal directions:")
         directions = get_orthonormal_directions(po_direction)
@@ -95,7 +96,10 @@ def main(
         )
 
         attrs = {f"direction{ii+1}": d for ii, d in enumerate(directions)}
-        coords = {"frequency": df_activitiy.frequency, "angle": angles}
+        coords = {
+            "frequency": df_activity.frequency * lo_frequency_THz_to_icm,
+            "angle": angles,
+        }
         dims = coords.keys()  # ("frequency", "angle")
         kw = {"dims": dims, "coords": coords, "attrs": attrs}
 
@@ -111,16 +115,20 @@ def main(
         ds.to_netcdf(outfile_po)
 
         fig, axs = plt.subplots(ncols=2, sharey=True, figsize=(10, 5))
+        x = np.linspace(0, ds.frequency.max(), 100)
+        a, *_, b = x
+        echo(f".. interpolate data to evenly spaced frequencies on [{a}, {b:.2f}]")
+        kw = {"fill_value": 0}
         for ax, da in zip(axs, arrays):
-            # interpolate to uniformly spaced frequency
-            # x = np.linspace(df_activitiy.frequency.min(), df_activitiy.frequency.max(), 100)
-            # da_new = da[3:].interp({'frequency': x}, method='nearest')
-            # echo(da_new)
-            # xr.plot.imshow(da_new.T, ax=ax)
+            # interpolate to uniformly spaced frequency for plotting
+            da = da[3:].interp({"frequency": x}, method="nearest", kwargs=kw)
+            da.name = da.name.split("_")[-1]
             xr.plot.imshow(da.T, ax=ax)
+
         fig.suptitle(f"PO Raman intensity for {po_direction} orientation")
 
-        outfile = "outfile." + name + ".pdf"
+        a, b, c = po_direction
+        outfile = "outfile." + name + f"_{a}{b}{c}" + ".pdf"
         echo(f".. save plot to {outfile}")
         fig.savefig(outfile)
 
