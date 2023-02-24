@@ -31,7 +31,7 @@ def n_BE(omega: float, temperature: float = 0, quantum: bool = True):
     if np.all(x < 1e-12):
         return n
 
-    mask = x < 100  # n will be _very_ small elsewhere
+    mask = (x > 1e-5) & (x < 100)  # n will be _very_ small or large elsewhere
 
     if quantum:
         n[mask] = 1 / (np.exp(x) - 1)[mask]

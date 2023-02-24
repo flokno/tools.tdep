@@ -85,6 +85,7 @@ lo_frequency_Hartree_to_icm = 1.0 / lo_hbar_Hartree / lo_twopi / lo_c_ms / 100.0
 lo_frequency_THz_to_Hartree = 1.0 / lo_frequency_Hartree_to_THz
 lo_frequency_meV_to_Hartree = 1.0 / lo_frequency_Hartree_to_meV
 lo_frequency_Hz_to_eV = lo_Hartree_to_eV / lo_frequency_Hartree_to_Hz
+lo_frequency_THz_to_icm = lo_frequency_THz_to_Hartree * lo_frequency_Hartree_to_icm
 # convert group velocities
 lo_groupvel_Hartreebohr_to_ms = lo_bohr_to_m / lo_time_au_to_s
 lo_groupvel_ms_to_Hartreebohr = 1.0 / lo_groupvel_Hartreebohr_to_ms
