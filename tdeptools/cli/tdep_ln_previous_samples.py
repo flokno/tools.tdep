@@ -20,12 +20,13 @@ def main(
     iter = int(cwd.parts[-1].lstrip(prefix))
     echo(f"..      current iteration: {iter}")
 
-    if iter < 2:
-        echo("** current iteration < 2")
-        echo("** do nothing.")
+    try:
+        folder_prev = next(Path("..").glob(f"{prefix}*{iter-1}")) / folder_name
+    except StopIteration:
+        echo(f"** current iteration {iter}")
+        echo("** no folder found, do nothing.")
         return
 
-    folder_prev = next(Path("..").glob(f"{prefix}*{iter-1}")) / folder_name
     echo(f".. previous sample folder: {folder_prev}")
 
     if not folder_prev.exists():

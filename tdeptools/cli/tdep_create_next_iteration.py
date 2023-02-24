@@ -18,6 +18,11 @@ _infiles = (
     "infile.lotosplitting",
 )
 
+_refpos_dict = {
+    "infile.ucposcar": "outfile.ucposcar.new_refpos",
+    "infile.ssposcar": "outfile.ssposcar.new_refpos",
+}
+
 
 def _create_samples(
     temperature: float,
@@ -43,7 +48,7 @@ def _create_samples(
         f.write(stdout)
 
 
-app = typer.Typer()
+app = typer.Typer(pretty_exceptions_show_locals=False)
 
 
 @app.command()
@@ -53,9 +58,11 @@ def main(
     mf: float = None,
     of: int = 4,
     quantum: bool = True,
+    max_samples: int = 512,
     force: bool = False,
     makefile: str = "Makefile",
     control: str = "control.in",
+    refpos: bool = typer.Option(False, help="Use updated reference positions."),
     create_sample_folder: bool = True,
 ):
     """..."""
@@ -67,8 +74,8 @@ def main(
     folder_new = Path(f"{prefix}{iter+1:03d}")
     echo(f"..         new folder: {folder_new}")
 
-    nsamples = 2 ** (iter + 2)
-    echo(f".. new no. of samples: {nsamples}")
+    nsamples = min(2 ** (iter + 2), max_samples)
+    echo(f".. new no. of samples: {nsamples} (max.: {max_samples})")
 
     echo(f"..        temperature: {temperature}")
     if temperature is None:
@@ -78,7 +85,10 @@ def main(
 
     for file in _infiles:
         if Path(file).exists():
-            shutil.copy(file, folder_new)
+            if refpos:
+                shutil.copy(_refpos_dict.get(file, file), folder_new / file)
+            else:
+                shutil.copy(file, folder_new / file)
 
     _create_samples(
         temperature=temperature,
