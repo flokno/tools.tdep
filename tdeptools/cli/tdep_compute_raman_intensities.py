@@ -9,6 +9,7 @@ import typer
 import xarray as xr
 from matplotlib import pyplot as plt
 from rich import print as echo
+from ase.io import read
 
 from tdeptools.geometry import get_orthonormal_directions
 from tdeptools.physics import freq2amplitude
@@ -27,12 +28,14 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 def main(
     file_activity: Path = "outfile.mode_activity.csv",
     file_dielectric: Path = "infile.dielectric_tensor",
+    # file_geometry: Path = "infile.ucposcar",
     outfile: Path = "outfile.mode_intensity.csv",
     outfile_po: Path = "outfile.mode_intensity_po.h5",
     po_direction: Tuple[int, int, int] = _default_po_direction,
     temperature: float = 0.0,
     quantum: bool = True,
     iq: int = 0,
+    # format_geometry: str = "vasp",
 ):
     """Compute Raman activity per mode"""
 
@@ -43,7 +46,9 @@ def main(
     echo(f".. select:          {df_activity.iq.unique()[iq]}")
     df_activity = df_activity[df_activity.iq == df_activity.iq.unique()[iq]]
     n_modes = len(df_activity)
-    echo(f".. no. of modes:    {n_modes}")
+    n_active = len(df_activity[df_activity.active_raman.eq(1)])
+    echo(f".. no. of modes:              {n_modes}")
+    echo(f".. no. of Raman active modes: {n_active}")
 
     # dielectric
     echo(f".. read dielectric tensors from {file_activity}")
@@ -51,7 +56,17 @@ def main(
     n_tensors = len(data_dielectric)
     echo(f".. found {n_tensors} tensors")
 
-    assert n_tensors == 2 * n_modes, f"Please provide {2*n_modes} tensors for now."
+    if n_tensors == 2 * n_modes:
+        only_active = False
+    elif n_tensors == 2 * n_active:
+        only_active = True
+        df_activity = df_activity[df_activity.active_raman.eq(1)]
+    else:
+        raise ValueError(
+            f"** Need {2*n_modes} or {2*n_active} tensors, got {n_tensors}"
+        )
+
+    echo(f".. only compute active modes: {only_active}")
 
     amplitudes = freq2amplitude(
         df_activity.frequency, temperature=temperature, quantum=quantum
@@ -85,6 +100,11 @@ def main(
 
     # PO?
     if not (po_direction == _default_po_direction):
+        # fkdev: need to account for reciprocal lattice?
+        # echo(f"... read structure from {file_geometry}")
+        # atoms = read(file_geometry, format=format_geometry)
+        # rc = atoms.cell.reciprocal().T
+        # po_direction = rc @ po_direction
         echo(f".. compute PO intensity map for E_in = {po_direction}")
         echo(".. find orthonormal directions:")
         directions = get_orthonormal_directions(po_direction)
