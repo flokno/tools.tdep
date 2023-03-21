@@ -21,7 +21,11 @@ outfile_dielectric_tensor = "infile.dielectric_tensor"
 
 # keys, maybe move to a module
 _keys = [
+    "cell",
+    "volume",
+    "natoms",
     "positions",
+    "positions_cartesian",
     "forces",
     "energy_total",
     "energy_kinetic",
@@ -34,6 +38,17 @@ _keys = [
 ]
 _dct = {key: key for key in _keys}
 keys = namedtuple("keys", _dct.keys())(**_dct)
+
+time, atom, cart = "time", "atom", "cart"
+dimensions = {
+    keys.cell: (cart, cart),
+    keys.positions: (atom, cart),
+    keys.positions_cartesian: (atom, cart),
+    keys.forces: (atom, cart),
+    keys.stress: (cart, cart),
+    keys.dielectric_tensor: (cart, cart),
+    keys.born_charges: (atom, cart, cart),
+}
 
 
 app = typer.Typer()

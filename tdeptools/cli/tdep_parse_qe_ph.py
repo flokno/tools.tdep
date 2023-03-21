@@ -11,18 +11,19 @@ _outfile_dielectric_tensor = "infile.dielectric_tensor"
 
 strip = lambda x: x.strip().strip("(").strip(")")
 
+hook_eps = "Dielectric constant in cartesian axis"
 hook_bec = "Effective charges (d Force / dE) in cartesian axis without acoustic"
 
 
 def parse_epsilon(fp) -> np.ndarray:
-    """parse the dielectric tensor"""
+    """parse the dielectric tensor from ph.x output"""
     next(fp)  # skip 1 line
     lines = [strip(next(fp)) for _ in range(3)]
     return np.array([np.fromstring(x, sep=" ") for x in lines])
 
 
 def parse_bec(fp, natoms) -> np.ndarray:
-    """parse the BEC"""
+    """parse the BEC from ph.x output"""
     next(fp)  # skip 1 line
     bec = []
     for _ in range(natoms):
@@ -40,7 +41,7 @@ def parse_ph_out(file: str) -> dict:
         for line in f:
             if "number of atoms/cell      =" in line:
                 natoms = int(line.split()[4])
-            if "Dielectric constant in cartesian axis" in line:
+            if hook_eps in line:
                 epsilon = parse_epsilon(f)
             if hook_bec in line:
                 bec = parse_bec(f, natoms=natoms)
