@@ -17,7 +17,7 @@ def main(
     base_folder: str = "samples",
     folder: str = "sample",
     outfile: str = "geometry.in",
-    control: Path = None,
+    files_control: List[Path] = None,
     force: bool = False,
 ):
     echo(files)
@@ -32,9 +32,10 @@ def main(
 
         shutil.move(file, fol / outfile)
 
-        if control is not None:
-            echo(f".. move {control} to {fol}")
-            shutil.copy(control, fol)
+        if files_control is not None:
+            for file in files_control:
+                echo(f".. move {file} to {fol}")
+                shutil.copy(file, fol)
 
     echo("done.")
 

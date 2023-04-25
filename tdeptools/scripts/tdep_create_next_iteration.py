@@ -3,12 +3,12 @@
 import shutil
 import subprocess as sp
 from pathlib import Path
+from typing import List
 
 import typer
 from rich import print as echo
 
 from .tdep_create_sample_folders import main as create_sample_folders
-
 
 _cmd = "canonical_configuration"
 _infiles = (
@@ -61,7 +61,7 @@ def main(
     max_samples: int = 512,
     force: bool = False,
     makefile: str = "Makefile",
-    control: str = "control.in",
+    files_control: List[Path]= None,
     refpos: bool = typer.Option(False, help="Use updated reference positions."),
     create_sample_folder: bool = True,
 ):
@@ -100,16 +100,19 @@ def main(
     )
 
     # copy files
-    echo(".. copy Makefile and control")
+    echo(".. copy Makefile")
     shutil.copy(makefile, folder_new)
-    shutil.copy(control, folder_new)
+    if files_control is not None:
+        echo(f'.. copy control files: {files_control}')
+        for file in files_control:
+            shutil.copy(file, folder_new)
 
     if create_sample_folder:
         files = sorted(folder_new.glob("aims_conf*"))
         create_sample_folders(
             files=files,
             base_folder=folder_new / "samples",
-            control=control,
+            files_control=files_control,
             force=force,
         )
 
