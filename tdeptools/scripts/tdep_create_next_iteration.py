@@ -30,9 +30,8 @@ def _create_samples(
     mf: float,
     quantum: bool,
     folder_new: Path,
-    of: int = 4,
 ):
-    cmd = f"{_cmd} -t {temperature} -of 4 -n {nsamples}"
+    cmd = f"{_cmd} -t {temperature} -n {nsamples}"
 
     if mf is not None:
         cmd += " -mf {mf}"
@@ -56,14 +55,15 @@ def main(
     prefix: str = "iter.",
     temperature: float = typer.Option(None, "--temperature", "-T"),
     mf: float = None,
-    of: int = 4,
     quantum: bool = True,
     max_samples: int = 512,
     force: bool = False,
     makefile: str = "Makefile",
-    files_control: List[Path]= None,
     refpos: bool = typer.Option(False, help="Use updated reference positions."),
     create_sample_folder: bool = True,
+    file_geometry: str = "geometry.in",
+    files_control: List[Path] = None,
+    format: str = "aims",
 ):
     """..."""
     cwd = Path().absolute()
@@ -96,24 +96,26 @@ def main(
         mf=mf,
         quantum=quantum,
         folder_new=folder_new,
-        of=of,
     )
 
     # copy files
     echo(".. copy Makefile")
     shutil.copy(makefile, folder_new)
     if files_control is not None:
-        echo(f'.. copy control files: {files_control}')
+        echo(f".. copy control files: {files_control}")
         for file in files_control:
             shutil.copy(file, folder_new)
 
     if create_sample_folder:
-        files = sorted(folder_new.glob("aims_conf*"))
+        files = sorted(folder_new.glob("contcar_conf*"))
         create_sample_folders(
             files=files,
+            outfile=file_geometry,
             base_folder=folder_new / "samples",
             files_control=files_control,
             force=force,
+            format_in="vasp",
+            format=format,
         )
 
 
