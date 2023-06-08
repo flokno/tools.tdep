@@ -6,6 +6,9 @@ import h5py as h5
 import numpy as np
 import rich
 from ase.io import read as read_ase
+from rich import print as echo
+
+from tdeptools.keys import keys
 
 _cls_data = namedtuple(
     "FC_block_data",
@@ -14,8 +17,15 @@ _cls_data = namedtuple(
 _cls_block = namedtuple("FC_block", ["atom_index", "n_neighbors", "data"])
 _cls_fc = namedtuple("FC", ["n_atoms", "cutoff", "blocks"])
 
+outfile_meta = "infile.meta"
+outfile_stat = "infile.stat"
+outfile_forces = "infile.forces"
+outfile_positions = "infile.positions"
+outfile_born_charges = "infile.born_charges"
+outfile_dielectric_tensor = "infile.dielectric_tensor"
 
-def get_one_block(f):
+
+def _parse_forceconstant_one_block(f):
     """Read one block of force constants for a given atom in the primitive cell
 
     Args:
@@ -68,7 +78,98 @@ def parse_forceconstant(file: str = "outfile.forceconstant"):
 
         for _ in range(n_atoms):
 
-            block = get_one_block(f)
+            block = _parse_forceconstant_one_block(f)
             blocks.append(block)
 
     return _cls_fc(n_atoms, cutoff, blocks)
+
+
+def write_infiles(
+    rows: list,
+    timestep: float = 1.0,
+    outfile_forces: str = outfile_forces,
+    outfile_positions: str = outfile_positions,
+    outfile_stat: str = outfile_stat,
+    outfile_born_charges: str = outfile_born_charges,
+    outfile_dielectric_tensor: str = outfile_dielectric_tensor,
+):
+    """write the normal input files (positions, forces, statistics)
+
+    Args:
+        rows: list with Atoms objects holding the calculation results
+        timestep: simulation timestep in fs
+    """
+    echo("... write forces, positions, and statistics")
+    with open(outfile_forces, "w") as ff, open(outfile_positions, "w") as fp, open(
+        outfile_stat, "w"
+    ) as fs:
+        for ii, row in enumerate(rows):
+
+            for (pos, force) in zip(row[keys.positions], row[keys.forces]):
+                (px, py, pz) = pos
+                (fx, fy, fz) = force
+                fp.write(f"{px:23.15e} {py:23.15e} {pz:23.15e}\n")
+                ff.write(f"{fx:23.15e} {fy:23.15e} {fz:23.15e}\n")
+
+            # shorthands
+            dt = timestep
+            et = row[keys.energy_total]
+            ep = row[keys.energy_potential]
+            ek = row[keys.energy_kinetic]
+            t, p, s = row[keys.temperature], row[keys.pressure], row[keys.stress]
+            assert len(s) == 6, len(s)
+            fs.write(f"{ii+1:7d} {ii*dt:9.3f} {et:23.15e} {ep:23.15e} {ek:23.15e} ")
+            fmt = "15.9f"
+            fs.write(f"{t:{fmt}} {p:{fmt}} ")
+            fs.write(" ".join(f"{x:{fmt}}" for x in s))
+            fs.write("\n")
+
+    echo(f"... forces written to {outfile_forces}")
+    echo(f"... positions written to {outfile_positions}")
+    echo(f"... statistics written to {outfile_stat}")
+
+    # dielectric data?
+    if row.get(keys.dielectric_tensor) is not None:
+        echo("... dielectric tensor found")
+        with open(outfile_dielectric_tensor, "w") as f:
+            for row in rows:
+                eps = row[keys.dielectric_tensor]
+                for vec in eps:
+                    f.write(" ".join(f"{x:23.15e}" for x in vec) + "\n")
+        echo(f"... dielectric tensors written to {outfile_dielectric_tensor}")
+
+        # then we should also write born charges:
+        mock_bec = -np.ones([len(row[keys.positions]), 3, 3])
+        with open(outfile_born_charges, "w") as f:
+            for row in rows:
+                if row.get(keys.born_charges) is None:
+                    mock = True
+                    bec = mock_bec
+                else:
+                    mock = False
+                    bec = row.get(keys.born_charges)
+                for vec in bec.reshape(-1, 3):
+                    f.write(" ".join(f"{x:23.15e}" for x in vec) + "\n")
+        if mock:
+            echo(f"*** mock born charges written to {outfile_born_charges}")
+        else:
+            echo(f"... born charges written to {outfile_born_charges}")
+
+
+def write_meta(
+    n_atoms: int, n_samples: int, dt: float = 1.0, outfile: str = outfile_meta
+):
+    """write TDEP simulation metadata
+
+    Args:
+        n_atoms: no. of atoms
+        n_samples: no. of samples
+        dt: time step in fs
+        outfile: the output file to write to, default = infile.meta
+    """
+    with open(outfile, "w") as f:
+        f.write("{:10}     # N atoms\n".format(n_atoms))
+        f.write("{:10}     # N timesteps\n".format(n_samples))
+        f.write("{:10}     # timestep in fs (currently not used )\n".format(dt))
+        f.write("{:10}     # temperature in K (currently not used)\n".format(-314))
+    echo(f"... meta info written to {outfile_meta}")

@@ -2,61 +2,19 @@
 
 from pathlib import Path
 from typing import List
-from collections import namedtuple
 
 import numpy as np
-from rich import print as echo
 import typer
-from ase import units, Atoms
+from ase import Atoms, units
 from ase.calculators.singlepoint import PropertyNotImplementedError
 from ase.io import read
+from rich import print as echo
 
-
-outfile_meta = "infile.meta"
-outfile_stat = "infile.stat"
-outfile_forces = "infile.forces"
-outfile_positions = "infile.positions"
-outfile_born_charges = "infile.born_charges"
-outfile_dielectric_tensor = "infile.dielectric_tensor"
-
-# keys, maybe move to a module
-_keys = [
-    "cell",
-    "volume",
-    "natoms",
-    "positions",
-    "positions_cartesian",
-    "forces",
-    "energy_total",
-    "energy_kinetic",
-    "energy_potential",
-    "temperature",
-    "stress",
-    "pressure",
-    "dielectric_tensor",
-    "born_charges",
-]
-_dct = {key: key for key in _keys}
-keys = namedtuple("keys", _dct.keys())(**_dct)
-
-time, atom, cart = "time", "atom", "cart"
-dimensions = {
-    keys.cell: (cart, cart),
-    keys.positions: (atom, cart),
-    keys.positions_cartesian: (atom, cart),
-    keys.forces: (atom, cart),
-    keys.stress: (cart, cart),
-    keys.dielectric_tensor: (cart, cart),
-    keys.born_charges: (atom, cart, cart),
-}
+from tdeptools.keys import keys
+from tdeptools.io import write_infiles, write_meta
 
 
 app = typer.Typer()
-
-
-def cleanup():
-    """Remove outfiles"""
-    ...
 
 
 def extract_results(atoms: Atoms, ignore_forces: bool = False) -> dict:
@@ -96,75 +54,6 @@ def extract_results(atoms: Atoms, ignore_forces: bool = False) -> dict:
     row.update(update)
 
     return row
-
-
-def write_infiles(rows: list, timestep: float = 1.0):
-    """write the normal input files (positions, forces, statistics)"""
-    echo("... write forces, positions, and statistics")
-    with open(outfile_forces, "w") as ff, open(outfile_positions, "w") as fp, open(
-        outfile_stat, "w"
-    ) as fs:
-        for ii, row in enumerate(rows):
-
-            for (pos, force) in zip(row[keys.positions], row[keys.forces]):
-                (px, py, pz) = pos
-                (fx, fy, fz) = force
-                fp.write(f"{px:23.15e} {py:23.15e} {pz:23.15e}\n")
-                ff.write(f"{fx:23.15e} {fy:23.15e} {fz:23.15e}\n")
-
-            # shorthands
-            dt = timestep
-            et = row[keys.energy_total]
-            ep = row[keys.energy_potential]
-            ek = row[keys.energy_kinetic]
-            t, p, s = row[keys.temperature], row[keys.pressure], row[keys.stress]
-            assert len(s) == 6, len(s)
-            fs.write(f"{ii+1:7d} {ii*dt:9.3f} {et:23.15e} {ep:23.15e} {ek:23.15e} ")
-            fmt = "15.9f"
-            fs.write(f"{t:{fmt}} {p:{fmt}} ")
-            fs.write(" ".join(f"{x:{fmt}}" for x in s))
-            fs.write("\n")
-
-    echo(f"... forces written to {outfile_forces}")
-    echo(f"... positions written to {outfile_positions}")
-    echo(f"... statistics written to {outfile_stat}")
-
-    # dielectric data?
-    if row.get(keys.dielectric_tensor) is not None:
-        echo("... dielectric tensor found")
-        with open(outfile_dielectric_tensor, "w") as f:
-            for row in rows:
-                eps = row[keys.dielectric_tensor]
-                for vec in eps:
-                    f.write(" ".join(f"{x:23.15e}" for x in vec) + "\n")
-        echo(f"... dielectric tensors written to {outfile_dielectric_tensor}")
-
-        # then we should also write born charges:
-        mock_bec = -np.ones([len(row[keys.positions]), 3, 3])
-        with open(outfile_born_charges, "w") as f:
-            for row in rows:
-                if row.get(keys.born_charges) is None:
-                    mock = True
-                    bec = mock_bec
-                else:
-                    mock = False
-                    bec = row.get(keys.born_charges)
-                for vec in bec.reshape(-1, 3):
-                    f.write(" ".join(f"{x:23.15e}" for x in vec) + "\n")
-        if mock:
-            echo(f"*** mock born charges written to {outfile_born_charges}")
-        else:
-            echo(f"... born charges written to {outfile_born_charges}")
-
-
-def write_meta(n_atoms: int, n_samples: int, dt: float = 1.0, file: str = outfile_meta):
-    """write simulation metadata"""
-    with open(file, "w") as f:
-        f.write("{:10}     # N atoms\n".format(n_atoms))
-        f.write("{:10}     # N timesteps\n".format(n_samples))
-        f.write("{:10}     # timestep in fs (currently not used )\n".format(dt))
-        f.write("{:10}     # temperature in K (currently not used)\n".format(-314))
-    echo(f"... meta info written to {outfile_meta}")
 
 
 @app.command()
