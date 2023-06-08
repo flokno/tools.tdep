@@ -10,9 +10,8 @@ from ase.calculators.singlepoint import PropertyNotImplementedError
 from ase.io import read
 from rich import print as echo
 
-from tdeptools.keys import keys
 from tdeptools.io import write_infiles, write_meta
-
+from tdeptools.keys import keys
 
 app = typer.Typer()
 
@@ -61,7 +60,7 @@ def main(
     files: List[Path],
     timestep: float = 1.0,
     ignore_forces: bool = False,
-    format: str = "aims-output",
+    format: str = None,
 ):
     """Parse DFT force/stress calculations via ase.io.read"""
     echo(f"Parse {len(files)} file(s)")
