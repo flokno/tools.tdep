@@ -11,6 +11,7 @@ import pandas as pd
 from tdeptools.hdf5 import read_grid_dispersion
 from tdeptools.brillouin import get_special_points_cart
 from tdeptools.infrared import get_oscillator_complex
+from tdeptools.konstanter import lo_frequency_THz_to_icm
 
 _option = typer.Option
 _check = "\u2713"
@@ -37,6 +38,7 @@ def main(
     file_geometry: Path = "infile.ucposcar",
     file_bec: Path = "infile.lotosplitting",
     file_intensity: Path = "ir_intensity.csv",
+    strength_threshold: float = 1e-5,
     broadening: float = _option(0.05, help="artifical broadening in cm^-1"),
     verbose: bool = False,
     format_geometry: str = "vasp",
@@ -53,7 +55,11 @@ def main(
     echo_check(f"BEC from {file_bec}")
     born_charges = np.loadtxt(file_bec).reshape([-1, 3, 3])[1:]
 
-    index_gamma = int(np.where(np.linalg.norm(ds.qpoints, axis=1) < 1e-9)[0])
+    # availabe points close to gamma:
+    indices_gamma = np.where(np.linalg.norm(ds.qpoints, axis=1) < 1e-9)
+    echo(f"... available q-points close to Gamma: {indices_gamma}")
+
+    index_gamma = int(indices_gamma[0])
     echo_check(f"Gamma point has index {index_gamma} on current grid")
 
     # make sure eigenvectors are real
@@ -100,11 +106,13 @@ def main(
     for nn, (Z, S) in enumerate(zip(Z_mode, oscillator_strength)):
         strength = np.linalg.norm(S)
         echo()
-        echo(f"Mode {nn:3d} w/ frequency {fix(omegas, decimals=decimals)[nn]} THz")
+        _w = fix(omegas, decimals=decimals)[nn]
+        _w_cm = fix(lo_frequency_THz_to_icm * omegas, decimals=decimals)[nn]
+        echo(f"Mode {nn:3d} w/ frequency {_w} THz ({_w_cm} cm^-1)")
         echo(f"Z = {fix(Z, decimals=decimals)}")
         echo(f"S = {strength:5g}")
 
-        if strength < 1e-7 and not verbose:
+        if strength < strength_threshold and not verbose:
             echo(".. inactive")
             continue
 
