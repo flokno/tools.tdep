@@ -47,7 +47,7 @@ class Data:
 
 
 @app.command()
-def main(file: Path = "OUTCAR", verbose: bool = False):
+def main(file: Path, verbose: bool = False):
     typer.echo(f"Read VASP output from {file}")
 
     natoms_matched = False
