@@ -8,7 +8,7 @@ import typer
 from ase.io import read
 from rich import print as echo
 
-default_symprec = 1e-5
+default_symprec = 1e-10
 
 
 def to_spglib_cell(atoms):
@@ -45,6 +45,13 @@ def inform(atoms, symprec=default_symprec, verbose=False):
     msg = ", ".join([f"{s} ({m})" for (s, m) in zip(unique_symbols, multiplicity)])
     echo(f"  Species:           {msg}")
     echo(f"  Periodicity:       {atoms.pbc}")
+    echo("  Positions:            x (Å)            y (Å)           z (Å) ")
+    for ii, (sym, pos) in enumerate(zip(atoms.get_chemical_symbols(), atoms.positions)):
+        x, y, z = pos.round(decimals=6)
+        rep = f"{x:15.6f}  {y:15.6f} {z:15.6f}"
+        sym = f"'{sym}'"
+        echo(f"    {ii:5d}, {sym:4s}: {rep}")
+
     if any(atoms.pbc):
         echo("  Lattice:  ")
         for vec in atoms.cell:
@@ -104,7 +111,7 @@ def main(
     verbose: bool = False,
 ):
     """Report information about geometry in FILE"""
-    echo(f"Read `{file}`")
+    echo(f"Read '{file}'")
 
     if "geometry.in" in file.name:
         format = "aims"

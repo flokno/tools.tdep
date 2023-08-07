@@ -57,7 +57,7 @@ def main(
 
     More information on spglib: https://spglib.readthedocs.io/en/latest/
     """
-    echo(f"Read `{file}`")
+    echo(f"Read '{file}'")
 
     if "geometry.in" in file.name:
         format = "aims"
