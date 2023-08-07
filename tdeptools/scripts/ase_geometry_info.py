@@ -8,7 +8,7 @@ import typer
 from ase.io import read
 from rich import print as echo
 
-_default_symprec = 1e-5
+default_symprec = 1e-5
 
 
 def to_spglib_cell(atoms):
@@ -19,7 +19,7 @@ def to_spglib_cell(atoms):
     return (lattice, positions, number)
 
 
-def get_symmetry_dataset(atoms, symprec=_default_symprec):
+def get_symmetry_dataset(atoms, symprec=default_symprec):
     """Get spglib symmetry dataset"""
 
     dataset = spg.get_symmetry_dataset(to_spglib_cell(atoms), symprec=symprec)
@@ -33,7 +33,7 @@ def get_symmetry_dataset(atoms, symprec=_default_symprec):
     return namedtuple("symmetry_dataset", dataset.keys())(**dataset)
 
 
-def inform(atoms, symprec=_default_symprec, verbose=False):
+def inform(atoms, symprec=default_symprec, verbose=False):
     """print geometry information to screen"""
     unique_symbols, multiplicity = np.unique(atoms.symbols, return_counts=True)
     # Structure info:
@@ -65,10 +65,11 @@ def inform(atoms, symprec=_default_symprec, verbose=False):
         echo(f"  Volume:           {atoms.get_volume():12.3f} \u212B**3")
         echo(f"  Volume per atom:  {atoms.get_volume() / len(atoms):12.3f} \u212B**3")
 
-        echo()
-        echo("Special k points:")
-        for key, val in atoms.cell.bandpath().special_points.items():
-            echo(f"    {key}: {val}")
+        if verbose:
+            echo()
+            echo("Special k points:")
+            for key, val in atoms.cell.bandpath().special_points.items():
+                echo(f"    {key}: {val}")
 
     if symprec is not None:
         echo()
@@ -99,7 +100,7 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 def main(
     file: Path,
     format: str = None,
-    symprec: float = _default_symprec,
+    symprec: float = typer.Option(default_symprec, "-t", "--symprec"),
     verbose: bool = False,
 ):
     """Report information about geometry in FILE"""
