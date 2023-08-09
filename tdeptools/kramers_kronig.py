@@ -36,6 +36,9 @@ def get_kk_imag_from_real_even(xs: np.ndarray, ys: np.ndarray, eta: float = 1e-5
     """Kramers-Kronig transform real to imaginary part from transfrom on [-inf, inf]"""
     assert len(xs) == len(ys)
 
+    xs = np.asarray(xs)
+    ys = np.asarray(ys)
+
     dx = xs[1] - xs[2]
     chi1 = ys.copy()
     chi2 = np.zeros_like(ys)
@@ -59,47 +62,74 @@ get_kk_imag_from_real = get_kk_imag_from_real_even
 get_kk_real_from_imag = get_kk_real_from_imag_even
 
 
-# More uneven transforms:
-def get_kk_imag_from_real_uneven(xs: np.ndarray, ys: np.ndarray, eta: float = 1e-5):
-    """Kramers-Kronig transform real to imaginary part from transfrom on [0, inf]"""
-    assert len(xs) == len(ys)
-
-    mask = xs >= 0
-
-    dx = (xs[1] - xs[0]).real
-    xs_square_eta = (xs[mask] + eta * 1.0j) ** 2
-
-    chi1 = ys.copy()
-    chi2 = np.zeros_like(ys)
-    chi1_mask = chi1[mask]
-
-    for ii, x in enumerate(xs):
-
-        dw = xs_square_eta - x ** 2
-
-        chi2[ii] = (x * chi1_mask / dw).real.sum()
-
-    return -2 * chi2.real / np.pi * dx
-
-
 def get_kk_real_from_imag_uneven(xs: np.ndarray, ys: np.ndarray, eta: float = 1e-5):
-    """Kramers-Kronig transform imaginary to real part from transform on [0, inf]"""
-    assert len(xs) == len(ys)
+    """KK transform for data on [0, xmax]"""
+    xs = np.asarray(xs)
+    ys = np.asarray(ys)
 
-    mask = xs >= 0
+    nn = len(xs)
 
-    dx = (xs[1] - xs[0]).real
-    xs_mask = xs[mask]
-    xs_square_eta = (xs_mask + eta * 1.0j) ** 2
+    assert xs[0] == 0
 
-    chi1 = ys.copy()
-    chi2 = np.zeros_like(ys)
-    chi1_mask = chi1[mask]
+    # full x axis: mirrored
+    xs_full = np.concatenate([-xs[:0:-1], xs])
+    ys_full = np.concatenate([-ys[:0:-1], ys])
 
-    for ii, x in enumerate(xs):
+    ys_full_real = get_kk_real_from_imag(xs_full, ys_full, eta=eta)
 
-        dw = xs_square_eta - x ** 2
+    # project back
+    assert np.allclose(xs, xs_full[nn - 1 :])  # sanity check
+    return ys_full_real[nn - 1 :]
 
-        chi2[ii] = (xs_mask * chi1_mask / dw).real.sum()
 
-    return 2 * chi2 / np.pi * dx
+# def get_kk_real_from_imag_uneven(xs: np.ndarray, ys: np.ndarray, eta: float = 1e-5):
+#     """Kramers-Kronig transform imaginary to real part from transform on [0, inf]"""
+#     assert len(xs) == len(ys)
+#
+#     xs = np.asarray(xs)
+#     ys = np.asarray(ys)
+#
+#     mask = xs >= 0
+#
+#     dx = (xs[1] - xs[0]).real
+#     xs_mask = xs[mask]
+#     xs_square_eta = (xs_mask + eta * 1.0j) ** 2
+#
+#     chi1 = ys.copy()
+#     chi2 = np.zeros_like(ys)
+#     chi1_mask = chi1[mask]
+#
+#     for ii, x in enumerate(xs):
+#
+#         dw = xs_square_eta - x ** 2
+#
+#         chi2[ii] = (xs_mask * chi1_mask / dw).real.sum()
+#
+#     return 2 * chi2 / np.pi * dx
+#
+# # More uneven transforms:
+# def get_kk_imag_from_real_uneven(xs: np.ndarray, ys: np.ndarray, eta: float = 1e-5):
+#     """Kramers-Kronig transform real to imaginary part from transfrom on [0, inf]"""
+#     assert len(xs) == len(ys)
+#
+#     xs = np.asarray(xs)
+#     ys = np.asarray(ys)
+#
+#     mask = xs >= 0
+#
+#     dx = (xs[1] - xs[0]).real
+#     xs_square_eta = (xs[mask] + eta * 1.0j) ** 2
+#
+#     chi1 = ys.copy()
+#     chi2 = np.zeros_like(ys)
+#     chi1_mask = chi1[mask]
+#
+#     for ii, x in enumerate(xs):
+#
+#         dw = xs_square_eta - x ** 2
+#
+#         chi2[ii] = (x * chi1_mask / dw).real.sum()
+#
+#     return -2 * chi2.real / np.pi * dx
+#
+#
