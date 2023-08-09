@@ -1,30 +1,31 @@
 import numpy as np
+from .kramers_kronig import get_oscillator_complex
 
 
-def get_oscillator_complex(x0: float, gamma: float, xmax: float = 50, nx: int = 10000):
-    """Return damped oscillator
 
-    y(x) = 1 / (x^2 + 2i*gamma*x - x0^2)
+def get_mode_resolved_BEC(
+    born_charges: np.ndarray, eigenvectors: np.ndarray, masses: np.ndarray
+) -> np.ndarray:
+    """Get mode-resolved Born effective charges
 
-    Args:
-        x0: eigenfrequency (undamped)
-        gamma: dampening
-        xmax: max. frequency (domain will be [-xmax, xmax])
-        nx: frequency points
-
-    returns:
-        (xx, yy):
-            xx: the frequency axis
-            yy: the (complex!) oscillator response
-
+    Z_s = \sum_i Z_i / m_i^1/2 |is>
     """
+    n_atoms = len(masses)
+    n_bands = n_atoms * 3
+    Z_mode = np.zeros([n_bands, 3])
+    # oscillator_strength = np.zeros([n_bands, 3, 3])
 
-    xx = np.linspace(-xmax, xmax, num=nx, endpoint=True)
+    for ss, ev in enumerate(eigenvectors):
+        for ii in range(n_atoms):
+            ev_i = ev[3 * ii : 3 * ii + 3]
+            m_i = masses[ii]
+            u_i = ev_i / (m_i ** 0.5)  # displacement for mode s, atom i
+            # echo(f"{ss}, {ii}, u_is = {u_i}")
+            Z_i = born_charges[ii]
 
-    yy = 1 / (xx ** 2 + 2.0j * gamma * xx - x0 ** 2)
+            Z_s = Z_i @ u_i
 
-    diff = max(abs(yy[0]), abs(yy[-1]))
-    if diff > 1e-9:
-        print(f"** Oscillator has not decayed to zero on the boundaries: {diff}")
+            Z_mode[ss] += Z_s
+        # oscillator_strength[ss] = np.outer(Z_mode[ss], Z_mode[ss])
 
-    return xx, yy
+    return Z_mode
