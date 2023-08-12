@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 
 from pathlib import Path
-from typing import Tuple
 
 import numpy as np
 import typer
@@ -11,11 +10,9 @@ from ase.io import read
 import pandas as pd
 import xarray as xr
 
-from tdeptools.hdf5 import read_grid_dispersion, read_dispersion_relations
-from tdeptools.brillouin import get_special_points_cart, get_q_points_cart
 from tdeptools.infrared import get_mode_resolved_BEC
 from tdeptools.konstanter import lo_frequency_THz_to_icm
-from tdeptools.helpers import Fix
+from tdeptools.helpers import Fix, to_voigt
 
 _option = typer.Option
 _check = "\u2713"
@@ -54,7 +51,7 @@ def main(
     strength_threshold: float = 1e-5,
     verbose: bool = False,
     format_geometry: str = "vasp",
-    decimals: int = _option(3, help="decimals for rounding the terminal output."),
+    decimals: int = _option(6, help="decimals for rounding the terminal output."),
 ):
     """Compute IR activity per mode outfile.phonon_self_energy.hdf5"""
     echo("Read input files:")
@@ -72,7 +69,7 @@ def main(
     atoms = read(file_geometry, format=format_geometry)
 
     echo_check(f"BEC from              '{file_bec}'")
-    born_charges = np.loadtxt(file_bec).reshape([-1, 3, 3])[1:]
+    eps_inf, *born_charges = np.loadtxt(file_bec).reshape([-1, 3, 3])
 
     # incident wave vector
     qdir = ds.incident_wavevector.data
@@ -94,6 +91,9 @@ def main(
     Z_mode = fix(Z_mode)
 
     S_mode = np.zeros(3 * len(atoms))
+    prefactor_mode = np.zeros(3 * len(atoms))
+    dw_loto_mode = np.zeros(3 * len(atoms))
+    Zq_vector = np.zeros([3 * len(atoms), 3])
     Zq_transverse = np.zeros(3 * len(atoms))
     Zq_longitudinal = np.zeros(3 * len(atoms))
 
@@ -114,20 +114,30 @@ def main(
         # project on qdir
         proj = qdir[:, None] * qdir[None, :] / (qdir @ qdir)
         Zq = fix(Zs @ qdir / np.linalg.norm(qdir))
-        Z_longitudinal = fix(proj @ Zs)
-        Z_transverse = fix(Zs - proj @ Zs)
+        Z_longitudinal = fix(proj @ Zs)  # in q
+        Z_transverse = fix(Zs - proj @ Zs)  # perp. to q
         Z = np.linalg.norm(Z_transverse)
 
         # permittivity, compute in SI units
-        Z_si = (Z / units.C) ** 2 * units.kg
+        # prefactor such that Z**2 * prefactor = epsilon
         V_si = atoms.get_volume() * 1e-30
+        w_si = _w * 1e12 * 2 * np.pi
 
-        if _w > 1e-9:
-            w_si = _w * 1e12 * 2 * np.pi
-            eps = 4 * np.pi * Z_si / V_si / w_si ** 2 / eps0  # -> atomic units
+        if w_si > 1e-9:
+            prefactor = 4 * np.pi / units.C ** 2 * units.kg / V_si / w_si ** 2 / eps0
         else:
-            eps = 0
-        S_mode[ss] = eps
+            prefactor = 0
+
+        prefactor_mode[ss] = prefactor
+
+        S = np.outer(Zs, Zs) * prefactor * _w ** 2
+        S_mode[ss] = np.linalg.norm(S)
+
+        # get LO/TO split for this mode
+        dw2 = (qdir @ S @ qdir) / (qdir @ eps_inf @ qdir)
+        w_TO = np.sqrt(_w ** 2 - dw2)
+        dw_loto = fix(_w - w_TO)
+        dw_loto_mode[ss] = dw_loto
 
         echo(f"... Z                = {fix(Zs)}")
         echo(f"... Z^transverse     = {fix(Z_transverse)}")
@@ -135,17 +145,22 @@ def main(
         echo(f"... Z.q              = {Zq}")
         echo(f"... |Z^longitudinal| = {np.linalg.norm(Z_longitudinal):6g}")
         echo(f"... |Z^transverse|   = {Z:6g}")
-        echo(f"--> S                = {Z:6g}")
-        echo(f"--> epsilon          = {eps:6g}")
+        echo(f"--> S                = {np.linalg.norm(S):6g}")
+        echo(f"--> LO-TO split:     = {dw_loto} (THz)")
 
+        Zq_vector[ss] = Zs
         Zq_transverse[ss] = Z
         Zq_longitudinal[ss] = np.linalg.norm(Z_longitudinal)
-
 
     df_intensity = pd.DataFrame(
         {
             "frequency": omegas,
             "frequency_cm": omegas_cm,
+            "loto_split": dw_loto_mode,
+            "prefactor": prefactor_mode,
+            "Z_x": Zq_vector[:, 0],
+            "Z_y": Zq_vector[:, 1],
+            "Z_z": Zq_vector[:, 2],
             "Z_transverse": Zq_transverse,
             "Z_longitudinal": Zq_longitudinal,
             "strength": S_mode,
