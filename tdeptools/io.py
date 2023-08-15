@@ -157,7 +157,11 @@ def write_infiles(
 
 
 def write_meta(
-    n_atoms: int, n_samples: int, dt: float = 1.0, outfile: str = outfile_meta
+    n_atoms: int,
+    n_samples: int,
+    dt: float = 1.0,
+    temperature: float = -314.15,
+    outfile: str = outfile_meta,
 ):
     """write TDEP simulation metadata
 
@@ -165,11 +169,12 @@ def write_meta(
         n_atoms: no. of atoms
         n_samples: no. of samples
         dt: time step in fs
+        temperature: simulation temperature
         outfile: the output file to write to, default = infile.meta
     """
     with open(outfile, "w") as f:
-        f.write("{:10}     # N atoms\n".format(n_atoms))
-        f.write("{:10}     # N timesteps\n".format(n_samples))
-        f.write("{:10}     # timestep in fs (currently not used )\n".format(dt))
-        f.write("{:10}     # temperature in K (currently not used)\n".format(-314))
+        f.write(f"{n_atoms:10}     # N atoms\n")
+        f.write(f"{n_samples:10}     # N timesteps\n")
+        f.write(f"{dt:10}     # timestep in fs (currently not used )\n")
+        f.write(f"{temperature:10}     # temperature in K (only for free energy)\n")
     echo(f"... meta info written to {outfile_meta}")

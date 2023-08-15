@@ -59,6 +59,7 @@ def extract_results(atoms: Atoms, ignore_forces: bool = False) -> dict:
 def main(
     files: List[Path],
     timestep: float = 1.0,
+    temperature: float = None,
     ignore_forces: bool = False,
     format: str = None,
 ):
@@ -66,6 +67,13 @@ def main(
     echo(f"Parse {len(files)} file(s)")
 
     echo(f"... empty forces will be ignored: {ignore_forces}")
+
+    if temperature is None:
+        echo("*** SIMULATION TEMPERATURE IS NOT GIVEN")
+        echo("--> set to -314.15K to remind you")
+        temperature = -314.15
+    else:
+        echo(f"... temperature:                  {temperature} K")
 
     # read data from files
     rows = []
@@ -91,7 +99,9 @@ def main(
 
     # write stuff
     write_infiles(rows, timestep=timestep)
-    write_meta(n_atoms=n_atoms, n_samples=n_samples, dt=timestep)
+    write_meta(
+        n_atoms=n_atoms, n_samples=n_samples, dt=timestep, temperature=temperature
+    )
 
 
 if __name__ == "__main__":
