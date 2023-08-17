@@ -5,12 +5,15 @@ from pathlib import Path
 
 import numpy as np
 import typer
+from ase import __version__ as ase_version
 from ase.io import read
 from ase.outputs import all_outputs as _all_outputs
 from rich import print as echo
 
 _dct = {key: key for key in _all_outputs}
 all_outputs = collections.namedtuple("keys", _dct.keys())(**_dct)
+
+assert int(ase_version.split(".")[1]) >= 23, "ASE >= 3.23 required!"
 
 
 hook_eps = "Dielectric constant in cartesian axis"
