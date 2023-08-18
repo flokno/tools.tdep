@@ -13,7 +13,7 @@ from rich import print as echo
 from tdeptools.io import write_infiles, write_meta
 from tdeptools.keys import keys
 
-app = typer.Typer()
+app = typer.Typer(pretty_exceptions_show_locals=False)
 
 
 def extract_results(atoms: Atoms, ignore_forces: bool = False) -> dict:
@@ -22,8 +22,8 @@ def extract_results(atoms: Atoms, ignore_forces: bool = False) -> dict:
         forces = atoms.get_forces()
     except PropertyNotImplementedError:
         if ignore_forces:
-            echo("*** forces not found, set to -1")
-            forces = -np.ones_like(atoms.positions)
+            echo("*** forces not found, will not write")
+            forces = None
         else:
             raise RuntimeError("*** FORCES NOT FOUND. Check or use `--ignore-forces`")
 
@@ -40,6 +40,7 @@ def extract_results(atoms: Atoms, ignore_forces: bool = False) -> dict:
     if "stress" in results:
         stress = atoms.get_stress() / units.GPa
     else:
+        echo("*** stress not found, set to 0")
         stress = np.zeros(6)
     pressure = np.mean(stress[:3])
 
@@ -78,7 +79,7 @@ def main(
     # read data from files
     rows = []
     for ii, file in enumerate(files):
-        echo(f"... parse file {ii+1:3d}: {str(file)}")
+        echo(f"... parse file {ii+1:3d}: '{str(file)}'")
 
         try:
             atoms_list = read(file, ":", format=format)

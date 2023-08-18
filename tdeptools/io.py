@@ -100,18 +100,14 @@ def write_infiles(
         timestep: simulation timestep in fs
     """
     echo("... write forces, positions, and statistics")
-    with open(outfile_forces, "w") as ff, open(outfile_positions, "w") as fp, open(
-        outfile_stat, "w"
-    ) as fs:
+    with open(outfile_positions, "w") as fp, open(outfile_stat, "w") as fs:
         for ii, row in enumerate(rows):
 
-            for (pos, force) in zip(row[keys.positions], row[keys.forces]):
+            for pos in row[keys.positions]:
                 (px, py, pz) = pos
-                (fx, fy, fz) = force
                 fp.write(f"{px:23.15e} {py:23.15e} {pz:23.15e}\n")
-                ff.write(f"{fx:23.15e} {fy:23.15e} {fz:23.15e}\n")
 
-            # shorthands
+            # write stat
             dt = timestep
             et = row[keys.energy_total]
             ep = row[keys.energy_potential]
@@ -124,9 +120,21 @@ def write_infiles(
             fs.write(" ".join(f"{x:{fmt}}" for x in s))
             fs.write("\n")
 
-    echo(f"... forces written to {outfile_forces}")
-    echo(f"... positions written to {outfile_positions}")
-    echo(f"... statistics written to {outfile_stat}")
+    echo(f"... positions written to  '{outfile_positions}'")
+    echo(f"... statistics written to '{outfile_stat}'")
+
+    # write forces if there are any
+    if row.get(keys.forces) is not None:
+        with open(outfile_forces, "w") as ff:
+            for ii, row in enumerate(rows):
+
+                for force in row[keys.forces]:
+                    (fx, fy, fz) = force
+                    ff.write(f"{fx:23.15e} {fy:23.15e} {fz:23.15e}\n")
+
+        echo(f"... forces written to     '{outfile_forces}'")
+    else:
+        echo(f'*** FORCES NOT FOUND -->  "{outfile_forces}" NOT WRITTEN!!')
 
     # dielectric data?
     if row.get(keys.dielectric_tensor) is not None:
@@ -136,24 +144,16 @@ def write_infiles(
                 eps = row[keys.dielectric_tensor]
                 for vec in eps:
                     f.write(" ".join(f"{x:23.15e}" for x in vec) + "\n")
-        echo(f"... dielectric tensors written to {outfile_dielectric_tensor}")
+        echo(f"... dielectric tensors written to '{outfile_dielectric_tensor}'")
 
-        # then we should also write born charges:
-        mock_bec = -np.ones([len(row[keys.positions]), 3, 3])
+    # Born charges?
+    if row.get(keys.born_charges) is not None:
         with open(outfile_born_charges, "w") as f:
             for row in rows:
-                if row.get(keys.born_charges) is None:
-                    mock = True
-                    bec = mock_bec
-                else:
-                    mock = False
-                    bec = row.get(keys.born_charges)
+                bec = row.get(keys.born_charges)
                 for vec in bec.reshape(-1, 3):
                     f.write(" ".join(f"{x:23.15e}" for x in vec) + "\n")
-        if mock:
-            echo(f"*** mock born charges written to {outfile_born_charges}")
-        else:
-            echo(f"... born charges written to {outfile_born_charges}")
+                echo(f"... born charges written to '{outfile_born_charges}'")
 
 
 def write_meta(
@@ -177,4 +177,4 @@ def write_meta(
         f.write(f"{n_samples:10}     # N timesteps\n")
         f.write(f"{dt:10}     # timestep in fs (currently not used )\n")
         f.write(f"{temperature:10}     # temperature in K (only for free energy)\n")
-    echo(f"... meta info written to {outfile_meta}")
+    echo(f"... meta info written to  '{outfile_meta}'")
