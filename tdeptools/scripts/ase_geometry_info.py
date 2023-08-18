@@ -33,7 +33,7 @@ def get_symmetry_dataset(atoms, symprec=default_symprec):
     return namedtuple("symmetry_dataset", dataset.keys())(**dataset)
 
 
-def inform(atoms, symprec=default_symprec, verbose=False):
+def inform(atoms, symprec=default_symprec, max_atoms=20, verbose=False):
     """print geometry information to screen"""
     unique_symbols, multiplicity = np.unique(atoms.symbols, return_counts=True)
     # Structure info:
@@ -51,6 +51,9 @@ def inform(atoms, symprec=default_symprec, verbose=False):
         rep = f"{x:15.6f}  {y:15.6f} {z:15.6f}"
         sym = f"'{sym}'"
         echo(f"    {ii:5d}, {sym:4s}: {rep}")
+        if ii > max_atoms - 2 and not verbose:
+            echo(f"  ... {len(atoms) - 20} more positions (show with --verbose)")
+            break
 
     if any(atoms.pbc):
         echo("  Lattice:  ")
@@ -108,6 +111,7 @@ def main(
     file: Path,
     format: str = None,
     symprec: float = typer.Option(default_symprec, "-t", "--symprec"),
+    max_atoms: int = typer.Option(20, help="print positions for max. this many atoms"),
     verbose: bool = False,
 ):
     """Report information about geometry in FILE"""
@@ -115,14 +119,14 @@ def main(
 
     if "geometry.in" in file.name:
         format = "aims"
-        echo(f"... autodetect format `{format}` for {file}")
+        echo(f"... autodetect format '{format}' for '{file}'")
     elif "poscar" in file.name.lower():
         format = "vasp"
-        echo(f"... autodetect format `{format}` for {file}")
+        echo(f"... autodetect format '{format}' for '{file}'")
 
     atoms = read(file, format=format)
 
-    inform(atoms, symprec=symprec, verbose=verbose)
+    inform(atoms, symprec=symprec, max_atoms=max_atoms, verbose=verbose)
 
 
 if __name__ == "__main__":
