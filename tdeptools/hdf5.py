@@ -70,7 +70,7 @@ def find_ylim(energy: np.ndarray, intensity: np.ndarray, max_frequency: float) -
 
 
 def read_grid_dispersion(file: Path = file_grid_dispersion) -> xr.Dataset:
-    """Read dispersion on grid from file an return as xr.Dataset with proper dim names
+    """Read dispersion on grid from file and return as xr.Dataset with proper dim names
 
     Args:
         file: `outfile.grid_dispersion.hdf5` or similar
@@ -87,4 +87,19 @@ def read_grid_dispersion(file: Path = file_grid_dispersion) -> xr.Dataset:
     }
     ds = xr.load_dataset(file)
     ds = ds.rename_dims({key: dims_dict[key] for key in ds.dims})
+    return ds
+
+
+def read_dispersion_relations(file: Path = file_grid_dispersion) -> xr.Dataset:
+    """Read dispersion on path from file and return as xr.Dataset with proper dim names
+
+    Args:
+        file: `outfile.dispersion_relations.hdf5` or similar
+
+    Returns:
+        Dataset: contains the dispersion information on a BZ path
+    """
+    ds = xr.load_dataset(file)
+    # ds = ds.rename_dims({key: dims_dict[key] for key in ds.dims})
+    ds = ds.rename_vars({"q_vector": "qpoints"})
     return ds
