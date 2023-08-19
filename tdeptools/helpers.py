@@ -30,3 +30,17 @@ def from_voigt(array: np.ndarray) -> np.ndarray:
     new_array[:, 0, 1] = array[:, 5]
 
     return new_array
+
+
+class Fix:
+    """Remove small numbers"""
+    def __init__(self, decimals: int = 3):
+        self.decimals = decimals
+
+    def __call__(self, array: np.ndarray, decimals: int = None) -> np.ndarray:
+        if decimals is None:
+            decimals = self.decimals
+
+        tmp = np.around(array, decimals=decimals)
+        tmp += 1e-2 ** decimals
+        return tmp.round(decimals=decimals)

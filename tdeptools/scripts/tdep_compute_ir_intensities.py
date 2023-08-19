@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 from pathlib import Path
+from typing import Tuple
 
 import numpy as np
 import typer
@@ -8,38 +9,55 @@ from rich import print as echo
 from ase.io import read
 import pandas as pd
 
-from tdeptools.hdf5 import read_grid_dispersion
-from tdeptools.brillouin import get_special_points_cart
-from tdeptools.infrared import get_oscillator_complex
+from tdeptools.hdf5 import read_grid_dispersion, read_dispersion_relations
+from tdeptools.brillouin import get_special_points_cart, get_q_points_cart
+from tdeptools.infrared import get_mode_resolved_BEC
 from tdeptools.konstanter import lo_frequency_THz_to_icm
+from tdeptools.helpers import Fix
 
 _option = typer.Option
 _check = "\u2713"
 key_intensity_raman = "intensity_ir"
 
 
-def echo_check(msg):
+def echo_check(msg, blank=False):
+    if blank:
+        echo()
     return echo(f" {_check} {msg}")
 
 
-def fix(array: np.ndarray, decimals: int = 3):
-    """fix the array: round and eliminate -0"""
-    tmp = np.around(array, decimals=decimals)
-    tmp += 1e-2 ** decimals
-    return tmp.round(decimals=decimals)
+def get_qdir(ds, index_gamma, cell_reciprocal=None):
+    qg = ds.qpoints.data[index_gamma]
+    qp = ds.qpoints.data[index_gamma + 1]
+    qm = ds.qpoints.data[index_gamma - 1]
+    if np.linalg.norm(qp) > 1e-9:
+        qdir = qp - qg
+    elif np.linalg.norm(qm) > 1e-9:
+        qdir = qm - qg
+    else:
+        raise ValueError(f"q direction could not be found")
 
+    if cell_reciprocal is not None:
+        qdir = get_q_points_cart(qdir, cell_reciprocal=cell_reciprocal)
+
+    qdir /= np.linalg.norm(qdir)
+    return qdir
+
+
+_default_qdir = (None, None, None)
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
 
 @app.command()
 def main(
-    file_dispersion: Path = "outfile.grid_dispersions.hdf5",
+    file_dispersion: Path,
     file_geometry: Path = "infile.ucposcar",
     file_bec: Path = "infile.lotosplitting",
-    file_intensity: Path = "ir_intensity.csv",
+    file_intensity: Path = "outfile.ir_intensity.csv",
+    iq: int = 0,
+    qdir: Tuple[float, float, float] = _default_qdir,
     strength_threshold: float = 1e-5,
-    broadening: float = _option(0.05, help="artifical broadening in cm^-1"),
     verbose: bool = False,
     format_geometry: str = "vasp",
     decimals: int = _option(3, help="decimals for rounding the terminal output."),
@@ -47,104 +65,117 @@ def main(
     """Compute IR activity per mode"""
     echo("Read input files:")
     echo_check(f"dispersion from {file_dispersion}")
-    ds = read_grid_dispersion(file_dispersion)
+
+    # set decimals
+    fix = Fix(decimals=decimals)
+
+    if "grid_dispersion" in file_dispersion.name:
+        ds = read_grid_dispersion(file_dispersion)
+        ds.frequencies.data *= 1e-12 / 2 / np.pi  # to THz
+    elif "dispersion_relations" in file_dispersion.name:
+        ds = read_dispersion_relations(file_dispersion)
 
     echo_check(f"unit cell from {file_geometry}")
     atoms = read(file_geometry, format=format_geometry)
 
+    # get and report special points
+    special_points_cart = get_special_points_cart(atoms)
+    echo("... Sepcial points (frac.)")
+    echo(atoms.cell.bandpath().special_points)
+    echo("... Special points (cart.):")
+    echo(special_points_cart)
+
     echo_check(f"BEC from {file_bec}")
     born_charges = np.loadtxt(file_bec).reshape([-1, 3, 3])[1:]
+    echo()
 
     # availabe points close to gamma:
-    indices_gamma = np.where(np.linalg.norm(ds.qpoints, axis=1) < 1e-9)
+    indices_gamma = np.where(np.linalg.norm(ds.qpoints, axis=1) < 1e-9)[0]
     echo(f"... available q-points close to Gamma: {indices_gamma}")
+    for ii, idx in enumerate(indices_gamma):
+        _q = ds.qpoints.data[idx]
+        # _qdir = get_qdir(ds, idx, cell_reciprocal=atoms.cell.reciprocal())
+        _qdir = get_qdir(ds, idx)  # , cell_reciprocal=atoms.cell.reciprocal())
+        echo(f"--> {ii:2d} ({idx:3d}): qdir =  {_qdir}")
 
-    index_gamma = int(indices_gamma[0])
-    echo_check(f"Gamma point has index {index_gamma} on current grid")
+    index_gamma = int(indices_gamma[iq])
+    if None in qdir:
+        qdir = get_qdir(ds, index_gamma)  # , atoms.cell.reciprocal())
+        echo_check(f"choose {iq:2d} ({index_gamma:3d}) w/ qdir =  {qdir}")
+        echo_check(f"use qdir =  {qdir} (default from qpoint)", blank=True)
+    else:
+        qdir = np.array(qdir)
+        echo_check(f"choose {iq:2d} ({index_gamma:3d})use qdir =  {qdir}")
+        echo_check(f"use qdir =  {qdir} (given by user)", blank=True)
 
     # make sure eigenvectors are real
     assert np.linalg.norm(ds.eigenvectors_im[index_gamma]) < 1e-12
-    echo_check("eigenvectors are real")
+    echo_check("eigenvectors are real", blank=True)
 
-    omegas = ds.frequencies.data[index_gamma] * 1e-12 / 2 / np.pi
+    omegas = fix(ds.frequencies.data[index_gamma])
+    omegas_cm = fix(lo_frequency_THz_to_icm * omegas)
     ev_gamma = ds.eigenvectors_re.data[index_gamma]
 
-    # show bandpaths
-    # echo(atoms.cell.bandpath())
-
-    # get and report special points
-    special_points_cart = get_special_points_cart(atoms)
-    echo(".. Special points (cart.):")
-    echo(special_points_cart)
-
     # mode-resolved BEC
-    masses = atoms.get_masses()
-    Z_mode = np.zeros([ds.number_of_bands, 3])
-
-    for nn, ev in enumerate(ev_gamma):
-        for ii in range(ds.number_of_atoms):
-            ev_i = ev[3 * ii : 3 * ii + 3]
-            m_i = masses[ii]
-            Z_i = born_charges[ii]
-
-            Z_s = Z_i @ ev_i / m_i ** 0.5
-
-            Z_mode[nn] += Z_s
-
+    Z_mode = get_mode_resolved_BEC(
+        born_charges=born_charges, eigenvectors=ev_gamma, masses=atoms.get_masses()
+    )
+    Z_mode = fix(Z_mode)
     oscillator_strength = Z_mode.conj()[:, :, None] * Z_mode[:, None, :]
 
-    # figure out things for the spectra
-    # 1. max. frequency:
-    xmax = 3 * omegas.max()
-    echo(f"... max. eigenfrequency:           {omegas.max():10.3f} (THz)")
-    echo(f"... max. frequency for oscillator: {xmax:10.3f} (THz)")
-    gamma = broadening
-    xx, _ = get_oscillator_complex(1, 1, xmax=xmax)
+    ir_intensites = np.zeros(3 * len(atoms))
+    Zq_transverse = np.zeros(3 * len(atoms))
+    Zq_longitudinal = np.zeros(3 * len(atoms))
 
-    intensity_isotropic = np.zeros_like(xx, dtype=complex)
-
-    for nn, (Z, S) in enumerate(zip(Z_mode, oscillator_strength)):
+    for ss, (Z, S) in enumerate(zip(Z_mode, oscillator_strength)):
         strength = np.linalg.norm(S)
         echo()
-        _w = fix(omegas, decimals=decimals)[nn]
-        _w_cm = fix(lo_frequency_THz_to_icm * omegas, decimals=decimals)[nn]
-        echo(f"Mode {nn:3d} w/ frequency {_w} THz ({_w_cm} cm^-1)")
-        echo(f"Z = {fix(Z, decimals=decimals)}")
-        echo(f"S = {strength:5g}")
+        _w = omegas[ss]
+        _w_cm = omegas_cm[ss]
+        echo(f"Mode {ss:3d} w/ frequency {_w} THz ({_w_cm} cm^-1)")
+        echo(f"... Z                = {fix(Z)}")
+        echo(f"... |S|              = {strength:6g}")
 
         if strength < strength_threshold and not verbose:
-            echo(".. inactive")
+            echo("... inactive")
             continue
+
+        # project on qdir
+        proj = qdir[:, None] * qdir[None, :] / (qdir @ qdir)
+        Zq = fix(Z @ qdir / np.linalg.norm(qdir))
+        Z_longitudinal = fix(proj @ Z)
+        Z_transverse = fix(Z - proj @ Z)
+        S_transverse = fix(S - proj @ S @ proj)
+        echo(f"... |Z.q|            = {Zq}")
+        echo(f"... |Z^longitudinal| = {np.linalg.norm(Z_longitudinal):6g}")
+        echo(f"... |Z^transverse|   = {np.linalg.norm(Z_transverse):6g}")
 
         if verbose:
             echo("S:")
-            echo(f"{fix(S ,decimals=decimals)}")
+            echo(f"{fix(S)}")
+            echo(f"Z^transverse: {Z_transverse}")
+            echo("S^transverse")
+            echo(f"{S_transverse}")
 
-        # compute spectrum
-        _, yy = get_oscillator_complex(omegas[nn], gamma=gamma, xmax=xmax)
-        intensity_isotropic -= strength * yy
-
-        for qkey, qvec in special_points_cart.items():
-            if qkey == "G":
-                continue
-            proj = qvec[:, None] * qvec[None, :] / (qvec @ qvec)
-            # Zq = Z @ qvec / np.linalg.norm(qvec)
-            Z_longitudinal = proj @ Z
-            Z_transverse = Z - proj @ Z
-            rep = str(fix(qvec, decimals=decimals))
-            echo(f".. {qkey}: {rep:20s}")  # , --> Z.q = {fix(Zq)}")
-            # echo(f".. |Z.q|            = {fix(Zq)}")
-            echo(f".... |Z^longitudinal| = {np.linalg.norm(Z_longitudinal):6g}")
-            echo(f".... |Z^transverse|   = {np.linalg.norm(Z_transverse):6g}")
+        Zq_transverse[ss] = np.linalg.norm(Z_transverse)
+        Zq_longitudinal[ss] = np.linalg.norm(Z_longitudinal)
+        ir_intensites = Zq_transverse * 4 * np.pi / atoms.get_volume() * omegas ** 2
 
     df_intensity = pd.DataFrame(
-        {"chi.real": intensity_isotropic.real, "chi.imag": intensity_isotropic.imag},
-        index=pd.Index(xx, name="frequency"),
+        {
+            "frequency": omegas,
+            "frequency_cm": omegas_cm,
+            "Z_transverse": Zq_transverse,
+            "Z_longitudinal": Zq_longitudinal,
+            "ir_intensity": ir_intensites,
+        },
+        index=pd.Index(np.arange(len(omegas)), name="mode"),
     )
 
-    echo(df_intensity.head())
+    echo(df_intensity)
 
-    df_intensity.to_csv(file_intensity)
+    echo(f'... save data to "{file_intensity}"')
+    df_intensity.to_csv(file_intensity, index_label="mode")
 
 
 if __name__ == "__main__":
