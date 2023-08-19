@@ -76,7 +76,7 @@ def main(
     file_self_energy: Path = "outfile.phonon_self_energy.hdf5",
     outfile: Path = "outfile.mode_intensity.csv",
     outfile_po: Path = "outfile.intensity_raman_po.h5",
-    plot: bool = False,
+    # plot: bool = False,
     temperature: float = 0.0,
     quantum: bool = True,
     decimals: int = 9,
