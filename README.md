@@ -6,7 +6,7 @@ tools.tdep
 [![code style](https://img.shields.io/badge/code%20style-black-202020.svg?style=flat-square)](https://github.com/ambv/black)
 ![build status](https://app.travis-ci.com/flokno/tools.tdep.svg?branch=main)
 
-These are a bunch of scripts and tools that facilitate working with the [TDEP method](http://ollehellman.github.io/).
+These are a bunch of scripts and tools that facilitate working with the [TDEP method](http://tdep-developers.github.io/).
 
 ## Disclaimer
 
