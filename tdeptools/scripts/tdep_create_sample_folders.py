@@ -38,7 +38,7 @@ def main(
         atoms.write(fol / outfile, format=format)
 
         # move original file as well for reference
-        shutil.move(file, fol)
+        shutil.move(str(file), str(fol))
 
         if files_control is not None:
             for file in files_control:
