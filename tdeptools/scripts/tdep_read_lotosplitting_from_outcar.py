@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import typer
 
-born_match = "BORN EFFECTIVE CHARGES (including local field effects)"
+born_match = "BORN EFFECTIVE CHARGES ("
 natoms_match = "number of ions"
 stress_match = "FORCE on cell =-STRESS in cart. coord.  units (eV):"
 forces_match = "TOTAL-FORCE (eV/Angst)"
