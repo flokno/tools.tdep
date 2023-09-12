@@ -144,16 +144,17 @@ def write_infiles(
                 eps = row[keys.dielectric_tensor]
                 for vec in eps:
                     f.write(" ".join(f"{x:23.15e}" for x in vec) + "\n")
-        echo(f"... dielectric tensors written to '{outfile_dielectric_tensor}'")
+        echo(f"--> written to            '{outfile_dielectric_tensor}'")
 
     # Born charges?
     if row.get(keys.born_charges) is not None:
+        echo("... born effective charges found")
         with open(outfile_born_charges, "w") as f:
             for row in rows:
                 bec = row.get(keys.born_charges)
                 for vec in bec.reshape(-1, 3):
                     f.write(" ".join(f"{x:23.15e}" for x in vec) + "\n")
-                echo(f"... born charges written to '{outfile_born_charges}'")
+        echo(f"--> written to            '{outfile_born_charges}'")
 
 
 def write_meta(
