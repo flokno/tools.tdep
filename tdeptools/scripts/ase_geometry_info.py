@@ -8,6 +8,12 @@ import typer
 from ase.io import read
 from rich import print as echo
 
+from tdeptools.geometry import (
+    bounding_sphere_of_box,
+    get_cubicness,
+    inscribed_sphere_in_box,
+)
+
 default_symprec = 1e-10
 
 
@@ -56,15 +62,16 @@ def inform(atoms, symprec=default_symprec, max_atoms=20, verbose=False):
             break
 
     if any(atoms.pbc):
-        echo("  Lattice:  ")
-        for vec in atoms.cell:
-            echo(f"    {vec}")
-        # cub = get_cubicness(atoms.cell)
-        # echo("  Cubicness:           {cub:.3f} ({cub**3:.3f})")
-        # r = inscribed_sphere_in_box(atoms.cell)
-        # echo(f"  Largest Cutoff:      {r:.3f} AA")
-        # r = bounding_sphere_of_box(atoms.cell)
-        # echo(f"  Bounding box rad.:   {r/2:.3f} AA")
+        echo("  Lattice (Å):  ")
+        echo("      " + np.array2string(atoms.cell, prefix="......"))
+        cub = get_cubicness(atoms.cell)
+        echo(f"  Cubicness:           {cub**3:.3f}")
+        r = inscribed_sphere_in_box(atoms.cell)
+        echo(f"  Largest Cutoff:      {r:.3f} Å")
+        r = bounding_sphere_of_box(atoms.cell)
+        echo(f"  Bounding box rad.:   {r/2:.3f} Å")
+        d = atoms.get_all_distances()
+        echo(f"  Nearest neighbor:    {d[d > 0].min():.3f} Å")
 
         la = atoms.cell.cellpar()
         echo("\nCell lengths and angles:")
@@ -72,8 +79,8 @@ def inform(atoms, symprec=default_symprec, max_atoms=20, verbose=False):
         angles = "  \u03B1, \u03B2, \u03B3 (°): "
         values = "{}".format(" ".join([f"{_l:11.4f}" for _l in la[3:]]))
         echo(angles + values)
-        echo(f"  Volume:           {atoms.get_volume():12.3f} \u212B**3")
-        echo(f"  Volume per atom:  {atoms.get_volume() / len(atoms):12.3f} \u212B**3")
+        echo(f"  Volume:           {atoms.get_volume():12.3f} Å**3")
+        echo(f"  Volume per atom:  {atoms.get_volume() / len(atoms):12.3f} Å**3")
 
         if verbose:
             echo()

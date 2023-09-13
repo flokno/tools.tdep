@@ -89,3 +89,43 @@ def get_rotation_matrix(
 
     # clean small values
     return Rm.round(decimals=decimals)
+
+
+def inscribed_sphere_in_box(cell: np.ndarray) -> float:
+    """Find the radius of an inscribed sphere in a unit cell"""
+
+    # the normals of the faces of the box
+    na = np.cross(cell[1, :], cell[2, :])
+    nb = np.cross(cell[2, :], cell[0, :])
+    nc = np.cross(cell[0, :], cell[1, :])
+    na /= np.linalg.norm(na)
+    nb /= np.linalg.norm(nb)
+    nc /= np.linalg.norm(nc)
+    # distances between opposing planes
+    rr = 1.0e10
+    rr = min(rr, abs(na @ cell[0, :]))
+    rr = min(rr, abs(nb @ cell[1, :]))
+    rr = min(rr, abs(nc @ cell[2, :]))
+    rr *= 0.5
+    return rr
+
+
+def bounding_sphere_of_box(cell: np.ndarray) -> float:
+    """Find the radius of the sphere bounding a box"""
+    a, b, c = np.asarray(cell)
+
+    d1 = a + b + c
+    d2 = a + b - c
+    d3 = a - b + c
+    d4 = a - b - b
+
+    return max(np.linalg.norm([d1, d2, d3, d4], axis=0)) / 2
+
+
+def get_cubicness(cell: np.ndarray) -> float:
+    """Quantify the cubicness of a cell"""
+    # perfect radius: 1/2 * width of the cube
+    radius_perfect = np.linalg.det(cell) ** (1 / 3) * 0.5
+    radius_actual = inscribed_sphere_in_box(cell)
+
+    return radius_actual / radius_perfect
