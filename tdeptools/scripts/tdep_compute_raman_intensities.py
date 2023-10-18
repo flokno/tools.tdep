@@ -39,7 +39,7 @@ def plot_intensity(x, y, xmax, outfile="outfile.intensity_raman.pdf"):
     ax.set_yticks([])
     ax.set_xlabel("Frequency (1/cm)")
     ax.set_ylabel("Intensity")
-    echo(f".. save intensity plot to '{outfile}'")
+    echo(f"... save intensity plot to '{outfile}'")
     fig.savefig(outfile)
 
 
@@ -60,9 +60,9 @@ def plot_po_map(
 
     fig.suptitle(f"PO Raman intensity for {po_direction} orientation")
 
-    a, b, c = [int(x) for x in po_direction]
+    a, b, c = [int(np.ceil(x)) for x in po_direction]
     outfile = "outfile." + name + f"_{a}{b}{c}" + ".pdf"
-    echo(f".. save PO plot to '{outfile}'")
+    echo(f"... save PO plot to '{outfile}'")
     fig.savefig(outfile)
 
 
@@ -74,8 +74,9 @@ def main(
     file_geometry: Path = "infile.ucposcar",
     file_dielectric: Path = "infile.dielectric_tensor",
     file_self_energy: Path = "outfile.phonon_self_energy.hdf5",
-    outfile: Path = "outfile.mode_intensity.csv",
-    outfile_po: Path = "outfile.intensity_raman_po.h5",
+    outfile_intensity: Path = "outfile.intensity_raman.csv",
+    outfile_intensity_mode: Path = "outfile.mode_intensity.csv",
+    outfile_intensity_po: Path = "outfile.intensity_raman_po.h5",
     plot: bool = False,
     temperature: float = 0.0,
     quantum: bool = True,
@@ -107,10 +108,10 @@ def main(
     echo(f"--> data is for incident q = {qdir}")
 
     # dielectric
-    echo(f".. read dielectric tensors from '{file_dielectric}'")
+    echo(f"... read dielectric tensors from '{file_dielectric}'")
     data_dielectric = np.loadtxt(file_dielectric).reshape([-1, 3, 3])
     n_tensors = len(data_dielectric)
-    echo(f".. found {n_tensors} tensors")
+    echo(f"... found {n_tensors} tensors")
 
     # Check if we have 2 dielectric tensors per mode, optionally w/o acoustic
     if len(data_dielectric) == 2 * n_modes:
@@ -158,10 +159,13 @@ def main(
     df_intensity = pd.DataFrame(data)
 
     echo("RAMAN MODE INTENSITIES:")
-    echo(panel.Panel(df_intensity.to_string(), title=str(outfile), expand=False))
+    p = panel.Panel(
+        df_intensity.to_string(), title=str(outfile_intensity_mode), expand=False
+    )
+    echo(p)
 
-    echo(f".. write intensities to '{outfile}'")
-    df_intensity.to_csv(outfile, index=None)
+    echo(f"... write intensities to '{outfile_intensity_mode}'")
+    df_intensity.to_csv(outfile_intensity_mode, index=None)
 
     # now full spectral
     _x = ds.frequency
@@ -208,21 +212,28 @@ def main(
     # now multiply in the spectral functions for PO
     arrays_with_frequency = []
     for da in arrays:
-        name = da.name.split("_")[-1]
+        _name = da.name.split("_")[-1]
         data = da.data.T @ ds.spectralfunction_per_mode.data
         da = xr.DataArray(
             data, coords={"angle": angles, "frequency": _x.data}, attrs=attrs
         )
-        da.name = name
+        da.name = _name
         arrays_with_frequency.append(da)
 
     ds_po = xr.merge(arrays_with_frequency)
-    echo(f".. save PO data to '{outfile_po}'")
-    ds_po.to_netcdf(outfile_po)
+    echo(f"... save PO data to '{outfile_intensity_po}'")
+    ds_po.to_netcdf(outfile_intensity_po)
+
+    # unpolarized intensity
+    _s = ds_po.parallel.sum(dim="angle") + ds_po.parallel.sum(dim="angle")
+    s = _s.to_series()
+    echo(f"... save unpolarized intensity to '{outfile_intensity}'")
+    s.to_csv(outfile_intensity)
 
     if plot:
-        plot_po_map(po_direction, name, arrays_with_frequency)
-        plot_intensity(_x, ds_intensity.intensity, 1.2 * ds.harmonic_frequencies.max())
+        _name = str(outfile_intensity_po).split(".")[1]
+        plot_po_map(po_direction, _name, arrays_with_frequency)
+        plot_intensity(_x, s, 1.2 * ds.harmonic_frequencies.max())
 
 
 if __name__ == "__main__":
