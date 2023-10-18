@@ -11,7 +11,6 @@ from ase.io import read
 from tdeptools import konstanter as k
 from tdeptools.hdf5 import (
     file_grid_dispersion,
-    outfile_grid_dispersion,
     read_grid_dispersion,
 )
 from tdeptools.thermodynamics import (
@@ -41,7 +40,7 @@ def main(
     ntemp: int = 101,
     mintemp: float = 0,
     maxtemp: float = 1000,
-    outfile: Path = outfile_grid_dispersion,
+    outfile: Path = "outfile.grid_dispersions.csv",
     file_compliance: Path = "outfile.compliance_tensor",
     digits: int = 4,
     float_format: str = "%15.8e",
@@ -126,9 +125,9 @@ def main(
         }
         df = pd.DataFrame(data_stress, index=index)
 
-        outfile = "outfile.stress_qha.csv"
-        echo(f".. save to {outfile}")
-        df.to_csv(outfile, float_format=float_format)
+        _outfile = "outfile.stress_qha.csv"
+        echo(f".. save to {_outfile}")
+        df.to_csv(_outfile, float_format=float_format)
 
     # create dataset
     echo("Dump data")
