@@ -103,3 +103,14 @@ def read_dispersion_relations(file: Path = file_grid_dispersion) -> xr.Dataset:
     # ds = ds.rename_dims({key: dims_dict[key] for key in ds.dims})
     ds = ds.rename_vars({"q_vector": "qpoints"})
     return ds
+
+
+def read_dataset_phonon_self_energy(file: str) -> xr.Dataset:
+    """Read outfile.phonon_self_energy.hdf5 into one xr.Dataset"""
+    ds = xr.load_dataset(file).rename({"q-point": "q_point"})
+    ds_ha = xr.load_dataset(file, group="harmonic")
+    ds_an = xr.load_dataset(file, group="anharmonic")
+    ds_qm = xr.load_dataset(file, group="qmesh")
+    ds_st = xr.load_dataset(file, group="structure")
+
+    return xr.merge([ds, ds_ha, ds_an, ds_qm, ds_st])
