@@ -16,6 +16,7 @@ _infiles = (
     "infile.ssposcar",
     "infile.forceconstant",
     "infile.lotosplitting",
+    "infile.ucposcar.init",
 )
 
 _refpos_dict = {
@@ -63,6 +64,8 @@ def main(
     create_sample_folder: bool = True,
     file_geometry: str = "geometry.in",
     files_control: List[Path] = None,
+    predictions: bool = False,
+    file_predictions: Path = "predictions.nc",
     format: str = "aims",
 ):
     """..."""
@@ -117,6 +120,11 @@ def main(
             format_in="vasp",
             format=format,
         )
+
+    if predictions and file_predictions.exists():
+        outfile = folder_new / (file_predictions.stem + "_prev.nc")
+        echo(f"... copy '{file_predictions}' to '{outfile}'")
+        shutil.copy(file_predictions, outfile)
 
 
 if __name__ == "__main__":
