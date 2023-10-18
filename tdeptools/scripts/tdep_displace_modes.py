@@ -24,6 +24,7 @@ def main(
     temperature: float = 0.0,
     ignore_acoustic: bool = True,
     frequency_tolerance: float = 1e-5,
+    amplitude: float = typer.Option(None, help="use fix amplitude"),
     verbose: bool = False,
 ):
     """Create mode displacements in unitcell"""
@@ -41,15 +42,17 @@ def main(
 
     # amplitudes
     omegas = ds_ha.harmonic_frequencies
-    amplitudes = freq2amplitude(omegas, temperature=temperature)
+    if amplitude is None:
+        amplitudes = lo_bohr_to_A * freq2amplitude(omegas, temperature=temperature)
+    else:
+        echo(f"... choose fixed amplitude: {amplitude}")
+        amplitudes = amplitude * np.ones_like(omegas)
 
     # resulting displacements in [N_mode, N_atoms, 3]
     masses_emu = np.sqrt(masses.repeat(3) * lo_amu_to_emu)
     dus = (evs / masses_emu[None, :]).reshape(-1, len(atoms), 3)
     # multiply in amplitudes
     dus *= amplitudes[:, None, None]
-    # -> A
-    dus *= lo_bohr_to_A
 
     if plusminus:
         signs = (1, -1)
