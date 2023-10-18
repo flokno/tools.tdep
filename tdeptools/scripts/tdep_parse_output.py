@@ -61,6 +61,7 @@ def main(
     files: List[Path],
     timestep: float = 1.0,
     temperature: float = None,
+    discard_start: int = 0,
     ignore_forces: bool = False,
     format: str = None,
 ):
@@ -91,17 +92,19 @@ def main(
             n_atoms = len(atoms)
             rows.append(extract_results(atoms, ignore_forces=ignore_forces))
 
-    n_samples = len(rows)
-    echo(f"... found {n_samples} samples")
+    echo(f"... found {len(rows)} samples")
 
-    if n_samples < 1:
+    echo(f"... discard {discard_start} steps at beginning")
+    rows = rows[discard_start:]
+
+    if len(rows) < 1:
         echo("... no data found, abort.")
         return
 
     # write stuff
     write_infiles(rows, timestep=timestep)
     write_meta(
-        n_atoms=n_atoms, n_samples=n_samples, dt=timestep, temperature=temperature
+        n_atoms=n_atoms, n_samples=len(rows), dt=timestep, temperature=temperature
     )
 
 
