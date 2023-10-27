@@ -1,21 +1,21 @@
 #! /usr/bin/env python3
 
 from pathlib import Path
-from typing import Tuple
 
 import numpy as np
 import pandas as pd
 import typer
 import xarray as xr
+from ase.io import read
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm, Normalize
-from rich import print as echo, panel
-from ase.io import read
+from rich import panel
+from rich import print as echo
 
 from tdeptools.geometry import get_orthonormal_directions
+from tdeptools.konstanter import lo_amu_to_emu, lo_frequency_THz_to_icm
 from tdeptools.physics import freq2amplitude
 from tdeptools.raman import intensity_isotropic, po_average
-from tdeptools.konstanter import lo_frequency_THz_to_icm
 
 _default_po_direction = (None, None, None)
 
@@ -66,10 +66,68 @@ def plot_po_map(
     fig.savefig(outfile)
 
 
-def get_intensity_from_modes(temperature, quantum, ds, data_dielectric):
+def get_intensity_from_atom_displacements(
+    ds: xr.Dataset,
+    data_dielectric: np.ndarray,
+    displacement: float,
+    masses: np.ndarray,
+):
+    """Compute mode intensity tensors from real-space displacements
+
+    I_abq = \sum_i v_iq * d eps_ab / d u_i  # a,b: Cart. coords, q: mode
+
+    u_i = real-space displacement of atom i
+    v_iq = eigenmode (transformation) vector, u_q =  \sum_i v_iq u_i
+    """
+
+    # convention: Matrices are stored alternating between + and - displacement
+    dielectric_matrices_pos = data_dielectric[0::2]
+    dielectric_matrices_neg = data_dielectric[1::2]
+
+    dielectric_matrices_diff = dielectric_matrices_pos - dielectric_matrices_neg
+
+    # get intensities
+    dXdu_iab = np.zeros_like(dielectric_matrices_diff)
+
+    h = 2 * displacement
+
+    dXdu_iab = dielectric_matrices_diff / h
+
+    # dXdu_iab
+    dXdu_iab = dXdu_iab.reshape(-1, 3, 3, 3)
+
+    # mode transformation
+    evs = ds.eigenvectors_re.data
+
+    # resulting displacements in [N_mode, N_atoms, 3]
+    masses_emu = np.sqrt(masses.repeat(3) * lo_amu_to_emu)
+    v_qia = (evs / masses_emu[None, :]).reshape(-1, len(masses), 3)
+
+    # intensities
+    _ = None
+    I_qab = (v_qia[:, :, :, _, _] * dXdu_iab[_, :]).sum(axis=(1, 2))
+
+    return I_qab
+
+
+def get_intensity_from_mode_displacements(
+    temperature: float,
+    quantum: bool,
+    ds: xr.Dataset,
+    data_dielectric: np.ndarray,
+):
+    """Compute mode intensity tensors from mode displacements
+
+    I_abq = d eps_ab / d u_q  # a,b: Cart. coords, q: mode
+
+    u_q = real-space displacement pattern for mode q
+
+    """
     amplitudes = freq2amplitude(
         ds.harmonic_frequencies, temperature=temperature, quantum=quantum
     )
+    echo("... ignore acoustic --> add them as zeros")
+    data_dielectric = np.concatenate([np.zeros([6, 3, 3]), data_dielectric])
 
     # convention: Matrices are stored alternating between + and - displacement
     dielectric_matrices_pos = data_dielectric[0::2]
@@ -81,12 +139,12 @@ def get_intensity_from_modes(temperature, quantum, ds, data_dielectric):
     # I_abq = d eps_ab / d Q_q  # a,b: Cart. coords, q: mode
 
     # let's start w/ isotropic averaging
-    I_abq = np.zeros_like(dielectric_matrices_diff)
+    I_qab = np.zeros_like(dielectric_matrices_diff)
     # mask away where amplitudes are small:
     mask = amplitudes > 1e-9
-    I_abq[mask] = dielectric_matrices_diff[mask] / amplitudes[mask, None, None]
+    I_qab[mask] = dielectric_matrices_diff[mask] / amplitudes[mask, None, None]
 
-    return I_abq
+    return I_qab
 
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
@@ -100,9 +158,10 @@ def main(
     outfile_intensity: Path = "outfile.intensity_raman.csv",
     outfile_intensity_mode: Path = "outfile.mode_intensity.csv",
     outfile_intensity_po: Path = "outfile.intensity_raman_po.h5",
-    plot: bool = False,
     temperature: float = 0.0,
+    displacement: float = typer.Option(0.01, help="real-space displacement in Å"),
     quantum: bool = True,
+    plot: bool = False,
     decimals: int = 9,
     format_geometry: str = "vasp",
 ):
@@ -142,23 +201,25 @@ def main(
 
     # Check if we have 2 dielectric tensors per mode, optionally w/o acoustic
     if len(data_dielectric) == 2 * n_modes:
-        # nothing to do
-        ...
+        echo("!!! 2 * 3N SAMPLES FOUND, ASSUME REAL SPACE DISPLACEMENTS")
+        I_qab = get_intensity_from_atom_displacements(
+            ds, data_dielectric, displacement, atoms.get_masses()
+        )
     elif len(data_dielectric) == 2 * n_modes - 6:
         echo("!!! 2 * (3N - 3) SAMPLES FOUND, ASSUME MODE DISPLACEMENTS")
-        echo("... ignore acoustic --> add them as zeros")
-        data_dielectric = np.concatenate([np.zeros([6, 3, 3]), data_dielectric])
+        I_qab = get_intensity_from_mode_displacements(
+            temperature, quantum, ds, data_dielectric
+        )
     else:
-        msg = f"got {len(data_dielectric)} dielectric tensors, need {2*n_modes}"
+        n1, n2 = 2 * n_modes, 2 * (n_modes - 3)
+        msg = f"got {len(data_dielectric)} dielectric tensors, need {n1} or {n2}"
         raise ValueError(msg)
 
     assert len(data_dielectric) == 2 * n_modes, (len(data_dielectric), 2 * n_modes)
 
-    I_abq = get_intensity_from_modes(temperature, quantum, ds, data_dielectric)
-
     # compute 1 intensity per mode
     I_q = np.zeros(n_modes)
-    for ii, I_ab in enumerate(I_abq):
+    for ii, I_ab in enumerate(I_qab):
         I_q[ii] = intensity_isotropic(I_ab)
 
     # add to dataframe
@@ -203,7 +264,7 @@ def main(
 
     # get PO data and corresponding angles
     I_qp_para, I_qp_perp, angles = po_average(
-        I_abq=I_abq, direction1=directions[1], direction2=directions[2]
+        I_abq=I_qab, direction1=directions[1], direction2=directions[2]
     )
 
     # prepare dataset with labels etc
