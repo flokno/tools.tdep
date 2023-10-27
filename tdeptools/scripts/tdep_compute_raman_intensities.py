@@ -66,6 +66,29 @@ def plot_po_map(
     fig.savefig(outfile)
 
 
+def get_intensity_from_modes(temperature, quantum, ds, data_dielectric):
+    amplitudes = freq2amplitude(
+        ds.harmonic_frequencies, temperature=temperature, quantum=quantum
+    )
+
+    # convention: Matrices are stored alternating between + and - displacement
+    dielectric_matrices_pos = data_dielectric[0::2]
+    dielectric_matrices_neg = data_dielectric[1::2]
+
+    dielectric_matrices_diff = dielectric_matrices_pos - dielectric_matrices_neg
+
+    # Raman tensor:
+    # I_abq = d eps_ab / d Q_q  # a,b: Cart. coords, q: mode
+
+    # let's start w/ isotropic averaging
+    I_abq = np.zeros_like(dielectric_matrices_diff)
+    # mask away where amplitudes are small:
+    mask = amplitudes > 1e-9
+    I_abq[mask] = dielectric_matrices_diff[mask] / amplitudes[mask, None, None]
+
+    return I_abq
+
+
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
 
@@ -83,11 +106,15 @@ def main(
     decimals: int = 9,
     format_geometry: str = "vasp",
 ):
-    """Compute Raman activity from finite differences
+    """Compute Raman activity from finite differences.
+
+    2 * 3 * Natoms       samples -> assume single atom displacements
+
+    2 * 3 * (Natoms - 1) samples -> assume mode displacements (w/o acoustic)
 
     Args:
         file_geometry: the reference structure
-        file_dielectric: input file with dielectric tensors from mode displacements
+        file_dielectric: input file with dielectric tensors
         file_self_energy: file with spectral functions from lineshape
         outfile: csv file with mode intensities
         outfile_po: hdf5 file with PO maps
@@ -118,6 +145,7 @@ def main(
         # nothing to do
         ...
     elif len(data_dielectric) == 2 * n_modes - 6:
+        echo("!!! 2 * (3N - 3) SAMPLES FOUND, ASSUME MODE DISPLACEMENTS")
         echo("... ignore acoustic --> add them as zeros")
         data_dielectric = np.concatenate([np.zeros([6, 3, 3]), data_dielectric])
     else:
@@ -126,33 +154,16 @@ def main(
 
     assert len(data_dielectric) == 2 * n_modes, (len(data_dielectric), 2 * n_modes)
 
-    amplitudes = freq2amplitude(
-        ds.harmonic_frequencies, temperature=temperature, quantum=quantum
-    )
-
-    # convention: Matrices are stored alternating between + and - displacement
-    dielectric_matrices_pos = data_dielectric[0::2]
-    dielectric_matrices_neg = data_dielectric[1::2]
-
-    dielectric_matrices_diff = dielectric_matrices_pos - dielectric_matrices_neg
-
-    # Raman tensor:
-    # I_abq = d eps_ab / d Q_q  # a,b: Cart. coords, q: mode
-
-    # let's start w/ isotropic averaging
-    I_abq = np.zeros_like(dielectric_matrices_diff)
-    # mask away where amplitudes are small:
-    mask = amplitudes > 1e-9
-    I_abq[mask] = dielectric_matrices_diff[mask] / amplitudes[mask, None, None]
+    I_abq = get_intensity_from_modes(temperature, quantum, ds, data_dielectric)
 
     # compute 1 intensity per mode
-    I_q = np.zeros_like(amplitudes)
+    I_q = np.zeros(n_modes)
     for ii, I_ab in enumerate(I_abq):
         I_q[ii] = intensity_isotropic(I_ab)
 
     # add to dataframe
     data = {
-        "imode": np.arange(len(amplitudes)),
+        "imode": np.arange(n_modes),
         "frequency": ds.harmonic_frequencies,
         "intensity_raman": I_q.round(decimals=decimals),
     }
