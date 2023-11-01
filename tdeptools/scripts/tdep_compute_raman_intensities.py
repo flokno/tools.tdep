@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 from pathlib import Path
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -32,10 +33,10 @@ def read_dataset(file: str) -> xr.Dataset:
     return xr.merge([ds, ds_ha, ds_an, ds_qm])
 
 
-def plot_intensity(x, y, xmax, outfile="outfile.intensity_raman.pdf"):
+def plot_intensity(x, y, xlim, outfile="outfile.intensity_raman.pdf"):
     fig, ax = plt.subplots(figsize=(6, 4))
-    ax.plot(lo_frequency_THz_to_icm * x, y)
-    ax.set_xlim(0, lo_frequency_THz_to_icm * xmax)
+    ax.plot(x, y)
+    ax.set_xlim(0, xlim)
     ax.set_yticks([])
     ax.set_xlabel("Frequency (1/cm)")
     ax.set_ylabel("Intensity")
@@ -44,19 +45,35 @@ def plot_intensity(x, y, xmax, outfile="outfile.intensity_raman.pdf"):
 
 
 def plot_po_map(
-    po_direction, name, arrays_with_frequency, tol=1e-10, linear=False, figsize=(10, 5)
+    po_direction,
+    name,
+    arrays_with_frequency,
+    tol=1e-7,
+    linear=False,
+    figsize=(10, 5),
+    xlim=None,
+    vmax=None,
 ):
     ncols = len(arrays_with_frequency)
     fig, axs = plt.subplots(ncols=ncols, sharey=True, figsize=figsize)
     for ax, da in zip(axs, arrays_with_frequency):
-        vmin = da.data.min() + tol
-        vmax = da.data.max() + tol
+        # normalize
+        da = da / da.max()
+        if vmax is not None:
+            vmin = tol
+        else:
+            vmin = da.data.min() + tol
+            vmax = da.data.max() + tol
         kw = {"vmin": vmin, "vmax": vmax}
         if linear:
             norm = Normalize(**kw)
         else:
             norm = LogNorm(**kw)
-        xr.plot.imshow(da + 2 * tol, ax=ax, norm=norm)
+        # xr.plot.imshow(da + 2 * tol, ax=ax, norm=norm)
+        xr.plot.imshow(da, ax=ax, norm=norm)
+
+        if xlim is not None:
+            ax.set_xlim(0, xlim)
 
     fig.suptitle(f"PO Raman intensity for {po_direction} orientation")
 
@@ -162,7 +179,12 @@ def main(
     displacement: float = typer.Option(0.01, help="real-space displacement in Å"),
     quantum: bool = True,
     plot: bool = False,
+    xlim: float = None,
+    vmax: float = None,
+    linear: bool = False,
+    thz: bool = False,
     decimals: int = 9,
+    qdir: Tuple[int, int, int] = (None, None, None),
     format_geometry: str = "vasp",
 ):
     """Compute Raman activity from finite differences.
@@ -186,11 +208,21 @@ def main(
     echo(f"--> number of atoms: {len(atoms)}")
     echo(f"--> number of modes: {n_modes}")
 
+    if thz:
+        unit = 1.0
+        echo("... use THz")
+    else:
+        unit = lo_frequency_THz_to_icm
+        echo("... use inv. cm")
+
     # activity
     echo(f"... read spectral information from '{file_self_energy}'")
     ds = read_dataset(file=file_self_energy)
 
-    qdir = ds.incident_wavevector.data
+    if None in qdir:
+        qdir = ds.incident_wavevector.data
+    else:
+        echo("!!! manually specified q direction:")
     echo(f"--> data is for incident q = {qdir}")
 
     # dielectric
@@ -217,12 +249,12 @@ def main(
 
     assert len(data_dielectric) == 2 * n_modes, (len(data_dielectric), 2 * n_modes)
 
-    # compute 1 intensity per mode
+    # compute 1 intensity per mode per isotropic averaging
     I_q = np.zeros(n_modes)
     for ii, I_ab in enumerate(I_qab):
         I_q[ii] = intensity_isotropic(I_ab)
 
-    # add to dataframe
+    # create a dataframe for mode intensities
     data = {
         "imode": np.arange(n_modes),
         "frequency": ds.harmonic_frequencies,
@@ -230,17 +262,16 @@ def main(
     }
     df_intensity = pd.DataFrame(data)
 
+    # report
     echo("RAMAN MODE INTENSITIES:")
-    p = panel.Panel(
-        df_intensity.to_string(), title=str(outfile_intensity_mode), expand=False
-    )
-    echo(p)
+    rep = df_intensity.to_string()
+    echo(panel.Panel(rep, title=str(outfile_intensity_mode), expand=False))
 
     echo(f"... write intensities to '{outfile_intensity_mode}'")
     df_intensity.to_csv(outfile_intensity_mode, index=None)
 
     # now full spectral
-    _x = ds.frequency
+    _x = ds.frequency * unit
     data = I_q[:, None] * ds.spectralfunction_per_mode.data
     da_mode = xr.DataArray(
         data,
@@ -269,7 +300,7 @@ def main(
 
     # prepare dataset with labels etc
     coords = {
-        "frequency": df_intensity.frequency * lo_frequency_THz_to_icm,
+        "frequency": df_intensity.frequency * unit,
         "angle": angles,
     }
     dims = coords.keys()  # ("frequency", "angle")
@@ -304,8 +335,18 @@ def main(
 
     if plot:
         _name = str(outfile_intensity_po).split(".")[1]
-        plot_po_map(po_direction, _name, arrays_with_frequency)
-        plot_intensity(_x, s, 1.2 * ds.harmonic_frequencies.max())
+        if xlim is None:
+            xlim = 1.2 * ds.harmonic_frequencies.max() * unit
+        echo(f"... xlim = {float(xlim)}")
+        plot_po_map(
+            po_direction,
+            _name,
+            arrays_with_frequency,
+            linear=linear,
+            xlim=xlim,
+            vmax=vmax,
+        )
+        plot_intensity(_x, s, xlim=xlim)
 
 
 if __name__ == "__main__":
