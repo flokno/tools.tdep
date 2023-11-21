@@ -20,23 +20,26 @@ def extract_results(atoms: Atoms, ignore_forces: bool = False) -> dict:
     """get the results and return a dictionary with normalized keys"""
     try:
         forces = atoms.get_forces()
-    except PropertyNotImplementedError:
+        energy_potential = atoms.get_potential_energy()
+        results = atoms.calc.results
+    except (PropertyNotImplementedError, RuntimeError):
         if ignore_forces:
             echo("*** forces not found, will not write")
             forces = None
+            energy_potential = np.nan
+            results = {}
         else:
             raise RuntimeError("*** FORCES NOT FOUND. Check or use `--ignore-forces`")
 
     row = {
         keys.positions: atoms.get_scaled_positions(),
         keys.forces: forces,
-        keys.energy_total: atoms.get_kinetic_energy() + atoms.get_potential_energy(),
+        keys.energy_total: atoms.get_kinetic_energy() + energy_potential,
         keys.energy_kinetic: atoms.get_kinetic_energy(),
-        keys.energy_potential: atoms.get_potential_energy(),
+        keys.energy_potential: energy_potential,
         keys.temperature: atoms.get_temperature(),
     }
 
-    results = atoms.calc.results
     if "stress" in results:
         stress = atoms.get_stress() / units.GPa
     else:
