@@ -99,12 +99,17 @@ def main(
     echo(f"... first {_nrows} neighbors, first is nearest neighbor:")
     echo(df.drop_duplicates("distances").head(_nrows))
 
-    echo(f"... save to {outfile}")
-    df.to_csv(outfile)
+    echo(f"... save to '{outfile}'")
+    df.to_csv(outfile, index_label="index")
+
+    # unique distances
+    _outfile = outfile.stem + "_unique.csv"
+    echo(f"... save unique distances to '{_outfile}'")
+    df.drop_duplicates("distances").to_csv(_outfile, index_label="index")
 
     if plot:
         outfile = outfile.stem + ".pdf"
-        echo(f"... plot and save to {outfile}")
+        echo(f"... plot and save to '{outfile}'")
         plot_distance_table(df, outfile=outfile)
 
 
