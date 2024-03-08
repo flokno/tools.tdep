@@ -250,7 +250,7 @@ def main(
         msg = f"got {len(data_dielectric)} dielectric tensors, need {n1} or {n2}"
         raise ValueError(msg)
 
-    assert len(data_dielectric) == 2 * n_modes, (len(data_dielectric), 2 * n_modes)
+    # assert len(data_dielectric) == 2 * n_modes, (len(data_dielectric), 2 * n_modes)
 
     # get PO directions orthogonal to incident q direction
     po_direction = qdir
