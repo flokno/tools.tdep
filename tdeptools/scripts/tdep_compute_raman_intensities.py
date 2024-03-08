@@ -17,6 +17,7 @@ from tdeptools.geometry import get_orthonormal_directions
 from tdeptools.konstanter import lo_amu_to_emu, lo_frequency_THz_to_icm
 from tdeptools.physics import freq2amplitude
 from tdeptools.raman import intensity_isotropic, po_average
+from tdeptools.scripts.tdep_displace_atoms import default_displacement
 
 _default_po_direction = (None, None, None)
 
@@ -178,7 +179,7 @@ def main(
     outfile_intensity_mode: Path = "outfile.mode_intensity.csv",
     outfile_intensity_po: Path = "outfile.intensity_raman_po.h5",
     temperature: float = 0.0,
-    displacement: float = typer.Option(0.01, help="real-space displacement in Å"),
+    displacement: float = typer.Option(default_displacement, help="displacement in Å"),
     quantum: bool = True,
     plot: bool = False,
     xlim: float = None,

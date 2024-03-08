@@ -6,6 +6,9 @@ from ase.io import read
 from rich import print as echo
 
 
+default_displacement: float = 0.01
+
+
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
 
@@ -13,7 +16,7 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 def main(
     file: Path,
     plusminus: bool = True,
-    displacement: float = typer.Option(0.01, help="displacement in Å"),
+    displacement: float = typer.Option(default_displacement, help="displacement in Å"),
     format: str = "vasp",
 ):
     """Displace the atoms"""
