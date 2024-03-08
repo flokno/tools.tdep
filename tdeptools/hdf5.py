@@ -7,6 +7,8 @@ import numpy as np
 import rich
 import xarray as xr
 
+from tdeptools.dimensions import dimensions_phonon_self_energy
+
 
 _arrays = ["q", "energy", "intensity", "ticks", "ticklabels", "unit"]
 data_spectral_cls = namedtuple("spectral_data", _arrays)
@@ -24,7 +26,6 @@ def get_arrays(file: Path):
     rich.print(f"Read spectral data from {file}")
 
     with h5.File(file, "r") as f:
-
         # get axes and intensity
         x = np.array(f.get("q_values"))
         y = np.array(f.get("energy_values"))
@@ -46,7 +47,6 @@ def get_arrays_dispersion(file: Path):
     rich.print(f"Read dispersion data from {file}")
 
     with h5.File(file, "r") as f:
-
         # get axes and intensity
         x = np.array(f.get("q_values"))
         y = np.array(f.get("frequencies"))
@@ -106,11 +106,31 @@ def read_dispersion_relations(file: Path = file_grid_dispersion) -> xr.Dataset:
 
 
 def read_dataset_phonon_self_energy(file: str) -> xr.Dataset:
-    """Read outfile.phonon_self_energy.hdf5 into one xr.Dataset"""
-    ds = xr.load_dataset(file).rename({"q-point": "q_point"})
+    """Read outfile.phonon_self_energy.hdf5 into one xr.Dataset with proper dim names"""
+    ds_in = xr.load_dataset(file).rename({"q-point": "q_point"})
     ds_ha = xr.load_dataset(file, group="harmonic")
     ds_an = xr.load_dataset(file, group="anharmonic")
+    # temporarily rename frequency axis, make coordinate later
+    ds_an = ds_an.rename({"frequency": "frequencies"})
     ds_qm = xr.load_dataset(file, group="qmesh")
     ds_st = xr.load_dataset(file, group="structure")
 
-    return xr.merge([ds, ds_ha, ds_an, ds_qm, ds_st])
+    datasets = (ds_in, ds_ha, ds_an, ds_qm, ds_st)
+
+    # assign correct dimension names
+    datasets_w_dimensions = []
+    for _ds in datasets:
+        # collect dimensions
+        dict_dim = {}
+        for var in _ds.data_vars:
+            for ii, dim in enumerate(_ds[var].dims):
+                dict_dim[dim] = dimensions_phonon_self_energy[var][ii]
+
+        datasets_w_dimensions.append(_ds.rename_dims(dict_dim))
+
+    ds = xr.merge(datasets_w_dimensions)
+
+    # make frequency a coordinate
+    ds = ds.assign_coords({"frequency": ds.frequencies})
+
+    return ds
