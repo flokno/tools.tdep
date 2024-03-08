@@ -16,6 +16,7 @@ from tdeptools.helpers import Fix, to_voigt
 
 _option = typer.Option
 _check = "\u2713"
+_fail = "\u2717"
 key_intensity_raman = "intensity_ir"
 
 eps0 = 1.112650055e-10
@@ -25,6 +26,12 @@ def echo_check(msg, blank=False):
     if blank:
         echo()
     return echo(f" {_check} {msg}")
+
+
+def echo_fail(msg, blank=False):
+    if blank:
+        echo()
+    return echo(f" {_fail} {msg}")
 
 
 def read_dataset(file: str) -> xr.Dataset:
@@ -80,7 +87,13 @@ def main(
     assert np.linalg.norm(ds.eigenvectors_im) < 1e-12
     echo_check("eigenvectors are real")
 
-    omegas = fix(ds.harmonic_frequencies.data)
+    try:
+        omegas = fix(ds.peak_mid.data)
+        echo_check("use temperature-shifted peak position for the frequencies")
+    except AttributeError:
+        omegas = fix(ds.harmonic_frequencies.data)
+        echo_fail("do NOT use temperature-shifted peak positions for the frequencies")
+
     omegas_cm = fix(lo_frequency_THz_to_icm * omegas)
     ev_gamma = ds.eigenvectors_re.data
 
@@ -124,18 +137,18 @@ def main(
         w_si = _w * 1e12 * 2 * np.pi
 
         if w_si > 1e-9:
-            prefactor = 4 * np.pi / units.C ** 2 * units.kg / V_si / w_si ** 2 / eps0
+            prefactor = 4 * np.pi / units.C**2 * units.kg / V_si / w_si**2 / eps0
         else:
             prefactor = 0
 
         prefactor_mode[ss] = prefactor
 
-        S = np.outer(Zs, Zs) * prefactor * _w ** 2
+        S = np.outer(Zs, Zs) * prefactor * _w**2
         S_mode[ss] = np.linalg.norm(S)
 
         # get LO/TO split for this mode
         dw2 = (qdir @ S @ qdir) / (qdir @ eps_inf @ qdir)
-        w_TO = np.sqrt(_w ** 2 - dw2)
+        w_TO = np.sqrt(_w**2 - dw2)
         dw_loto = fix(_w - w_TO)
         dw_loto_mode[ss] = dw_loto
 
