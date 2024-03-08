@@ -30,6 +30,7 @@ def _create_samples(
     nsamples: int,
     mf: float,
     quantum: bool,
+    imaginary: bool,
     folder_new: Path,
 ):
     cmd = f"{_cmd} -t {temperature} -n {nsamples}"
@@ -39,6 +40,9 @@ def _create_samples(
 
     if quantum:
         cmd += " --quantum"
+
+    if imaginary:
+        cmd += " --imaginary"
 
     ps = sp.run(cmd.split(), cwd=folder_new, capture_output=True)
     stdout = ps.stdout + ps.stderr
@@ -57,6 +61,7 @@ def main(
     temperature: float = typer.Option(None, "--temperature", "-T"),
     mf: float = None,
     quantum: bool = True,
+    imaginary: bool = False,
     max_samples: int = 512,
     force: bool = False,
     makefile: str = "Makefile",
@@ -77,7 +82,7 @@ def main(
     folder_new = Path(f"{prefix}{iter+1:03d}")
     echo(f"..         new folder: {folder_new}")
 
-    nsamples = min(2 ** (iter + 2), max_samples)
+    nsamples = min(2 ** (iter + 1), max_samples)
     echo(f".. new no. of samples: {nsamples} (max.: {max_samples})")
 
     echo(f"..        temperature: {temperature}")
@@ -98,6 +103,7 @@ def main(
         nsamples=nsamples,
         mf=mf,
         quantum=quantum,
+        imaginary=imaginary,
         folder_new=folder_new,
     )
 
