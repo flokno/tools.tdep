@@ -42,7 +42,7 @@ def main(
 
                 _file = str(file).lstrip("infile.")
                 outfile = (
-                    f"outfile.{_file}.displacement.{nn+1:03d}.{rep_cart}.{rep_sign}"
+                    f"outfile.{_file}.displacement.{counter:05d}.{rep_cart}.{rep_sign}"
                 )
                 echo(f"... write geometry {counter:5d} to {outfile}")
                 watoms.write(outfile, format=format)
