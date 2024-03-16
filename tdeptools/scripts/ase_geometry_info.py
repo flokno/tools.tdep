@@ -58,7 +58,7 @@ def inform(atoms, symprec=default_symprec, max_atoms=20, verbose=False):
         sym = f"'{sym}'"
         echo(f"    {ii:5d}, {sym:4s}: {rep}")
         if ii > max_atoms - 2 and not verbose:
-            echo(f"  ... {len(atoms) - 20} more positions (show with --verbose)")
+            echo(f"  ... {len(atoms) - max_atoms} more positions (show with --verbose)")
             break
 
     if any(atoms.pbc):
@@ -118,7 +118,7 @@ def main(
     file: Path,
     format: str = None,
     symprec: float = typer.Option(default_symprec, "-t", "--symprec"),
-    max_atoms: int = typer.Option(20, help="print positions for max. this many atoms"),
+    max_atoms: int = typer.Option(4, help="print positions for max. this many atoms"),
     verbose: bool = False,
 ):
     """Report information about geometry in FILE"""
