@@ -27,7 +27,7 @@ def extract_results(atoms: Atoms, ignore_forces: bool = False) -> dict:
             echo("*** forces not found, will not write")
             forces = None
             energy_potential = np.nan
-            results = {}
+            results = atoms.calc.results
         else:
             raise RuntimeError("*** FORCES NOT FOUND. Check or use `--ignore-forces`")
 

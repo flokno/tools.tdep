@@ -124,9 +124,12 @@ def write_infiles(
     echo(f"... statistics written to '{outfile_stat}'")
 
     # write forces if there are any
-    if row.get(keys.forces) is not None:
+    # check first if there are
+    if not any(row.get(keys.forces) is None for row in rows):
         with open(outfile_forces, "w") as ff:
             for ii, row in enumerate(rows):
+
+                print(row)
 
                 for force in row[keys.forces]:
                     (fx, fy, fz) = force
@@ -134,10 +137,10 @@ def write_infiles(
 
         echo(f"... forces written to     '{outfile_forces}'")
     else:
-        echo(f'*** FORCES NOT FOUND -->  "{outfile_forces}" NOT WRITTEN!!')
+        echo(f'*** FORCES NOT FOUND in all samples ->  "{outfile_forces}" NOT WRITTEN!!')
 
     # dielectric data?
-    if row.get(keys.dielectric_tensor) is not None:
+    if not any(row.get(keys.dielectric_tensor) is None for row in rows):
         echo("... dielectric tensor found")
         with open(outfile_dielectric_tensor, "w") as f:
             for row in rows:
