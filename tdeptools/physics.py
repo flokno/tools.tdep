@@ -1,12 +1,16 @@
 """Function related to physics, e.g., Bose-Einstein distribution"""
+
 import numpy as np
 
 from tdeptools.konstanter import (
+    lo_hbar_Joule,
+    lo_amu_to_kg,
     lo_frequency_Hartree_to_THz,
     lo_frequency_THz_to_Hartree,
     lo_kb_Hartree,
 )
 
+amplitude_to_angstrom = 1e10 / np.sqrt(lo_amu_to_kg)
 THz_to_K = lo_frequency_THz_to_Hartree / lo_kb_Hartree
 
 
@@ -52,7 +56,7 @@ def freq2amplitude(
         quantum (bool, optional): Whether or not to use quantum statistics.
 
     Returns:
-        A (float): Amplitude of the oscillation.
+        A (float): Amplitude of the oscillation in AMU^1/2 * AA.
     """
 
     n = n_BE(omega=omega, temperature=temperature, quantum=quantum)
@@ -63,6 +67,15 @@ def freq2amplitude(
 
     mask = np.asarray(omega) > 1e-12
 
-    A[mask] = np.sqrt(n / omega * lo_frequency_Hartree_to_THz)[mask]
+    # old:
+    # A[mask] = np.sqrt(n / omega * lo_frequency_Hartree_to_THz)[mask]
+
+    # correct:
+    # A = \sqrt( \hbar (n + 1/2) / \omega )
+    # [hbar] = J s = kg m^2 s^-1
+    # [omega] = THz = 1e12 s^-1
+    # [hbar / omega] = kg m^2 / 1e12
+    # kg^1/2 m =  (AMU * amu_to_kg)^1/2 * 1e10 AA
+    A[mask] = amplitude_to_angstrom * np.sqrt(lo_hbar_Joule * n / omega * 1e-12)[mask]
 
     return A
