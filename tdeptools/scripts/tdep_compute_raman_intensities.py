@@ -113,6 +113,8 @@ def get_intensity_from_atom_displacements(
 
     dXdu_iab = dielectric_matrices_diff / h
 
+    # np.savetxt("dev_Deps_Du.dat", dXdu_iab.reshape(-1, 3))
+
     # dXdu_iab
     dXdu_iab = dXdu_iab.reshape(-1, 3, 3, 3)
 
@@ -120,7 +122,8 @@ def get_intensity_from_atom_displacements(
     evs = ds.eigenvectors_re.data
 
     # resulting displacements in [N_mode, N_atoms, 3]
-    masses_emu = np.sqrt(masses.repeat(3) * lo_amu_to_emu)
+    # No idea why this was converted to EMU, probably a mistake
+    masses_emu = np.sqrt(masses.repeat(3))  # * lo_amu_to_emu)
     v_qia = (evs / masses_emu[None, :]).reshape(-1, len(masses), 3)
 
     # intensities
@@ -143,6 +146,7 @@ def get_intensity_from_mode_displacements(
     u_q = real-space displacement pattern for mode q
 
     """
+    # amplitudes in AMU^1/2 * AA
     amplitudes = freq2amplitude(
         ds.harmonic_frequencies, temperature=temperature, quantum=quantum
     )
@@ -170,11 +174,16 @@ def get_intensity_from_mode_displacements(
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
 
+def _infile(*args):
+    """Input file option, must exist"""
+    return typer.Option(*args, exists=True)
+
+
 @app.command()
 def main(
-    file_geometry: Path = "infile.ucposcar",
-    file_dielectric: Path = "infile.dielectric_tensor",
-    file_self_energy: Path = "outfile.phonon_self_energy.hdf5",
+    file_geometry: Path = _infile("infile.ucposcar"),
+    file_dielectric: Path = _infile("infile.dielectric_tensor"),
+    file_self_energy: Path = _infile("outfile.phonon_self_energy.hdf5"),
     outfile_intensity: Path = "outfile.intensity_raman.csv",
     outfile_intensity_mode: Path = "outfile.mode_intensity.csv",
     outfile_intensity_po: Path = "outfile.intensity_raman_po.h5",
@@ -373,7 +382,13 @@ def main(
             xlim=xlim,
             vmax=vmax,
         )
-        plot_intensity(_x, df.intensity_unpolarized, df.intensity_isotropic, xlim=xlim, outfile=_outfile + f"_{a}{b}{c}.pdf")
+        plot_intensity(
+            _x,
+            df.intensity_unpolarized,
+            df.intensity_isotropic,
+            xlim=xlim,
+            outfile=_outfile + f"_{a}{b}{c}.pdf",
+        )
 
 
 if __name__ == "__main__":
