@@ -80,8 +80,6 @@ def main(
     else:
         ys_dispersion = None
 
-    echo(x)
-
     # integrate intensity in energy
     n_bands = int(np.trapz(gz, x=y, axis=0).mean())
     echo(f".. no. of bands:      {n_bands:.2f}")
