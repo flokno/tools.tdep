@@ -70,19 +70,19 @@ def get_rotation_matrix(
     Rm = np.array(
         [
             [
-                r1 ** 2 * (1 - cp) + cp,
+                r1**2 * (1 - cp) + cp,
                 r1 * r2 * (1 - cp) - r3 * sp,
                 r1 * r3 * (1 - cp) + r2 * sp,
             ],
             [
                 r1 * r2 * (1 - cp) + r3 * sp,
-                r2 ** 2 * (1 - cp) + cp,
+                r2**2 * (1 - cp) + cp,
                 r2 * r3 * (1 - cp) - r1 * sp,
             ],
             [
                 r3 * r1 * (1 - cp) - r2 * sp,
                 r2 * r3 * (1 - cp) + r1 * sp,
-                r3 ** 2 * (1 - cp) + cp,
+                r3**2 * (1 - cp) + cp,
             ],
         ]
     )
@@ -129,3 +129,47 @@ def get_cubicness(cell: np.ndarray) -> float:
     radius_actual = inscribed_sphere_in_box(cell)
 
     return radius_actual / radius_perfect
+
+
+def compute_area(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray) -> float:
+    """Compute the area between three points in 3D space.
+
+    Args:
+        p1: The coordinates of the first point.
+        p2: The coordinates of the second point.
+        p3: The coordinates of the third point.
+
+    Returns:
+        float: The area between the three points.
+
+    """
+    # Compute the vectors between the points
+    v1 = p2 - p1
+    v2 = p3 - p1
+
+    # Compute the cross product of the vectors
+    cross_product = np.cross(v1, v2)
+
+    # Compute the magnitude of the cross product
+    area = np.linalg.norm(cross_product) / 2
+
+    return area
+
+
+def compute_mean_distance_to_centroid(points: list) -> float:
+    """Compute the mean distance to the centroid for a list of points.
+
+    Args:
+        points: A list of points in 3D space.
+
+    Returns:
+        float: The mean distance to the centroid.
+
+    """
+    # Compute the centroid of the points
+    centroid = np.mean(points, axis=0)
+    # Compute the distances from each point to the centroid
+    distances = [np.linalg.norm(point - centroid) for point in points]
+    # Compute the mean distance
+    mean_distance = np.mean(distances)
+    return mean_distance
