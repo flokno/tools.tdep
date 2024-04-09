@@ -15,13 +15,13 @@ from tdeptools.io import parse_forceconstant
 
 echo = rich.print
 
-_file = Path("outfile.forceconstant")
-_file_primitive = Path("infile.ucposcar")
-_outfile_data = "fc_TAGs.csv"
 _outfile_plot = "fc_TAGs.pdf"
 
+markers = ["o", "d", "*", ".", "^", "v", "s", "+", "d"]
+markers += 99 * ["o"]
 
-def process_blocks(blocks: list, atoms: Atoms = None, trace: bool = False):
+
+def process_blocks(blocks: list, atoms: Atoms = None, decimals: int = 10):
     """turn the FC blocks from TDEP into a Dataframe containing the norms per distance"""
     # sort data
     pair_indices = []  # indices in unit cell
@@ -30,6 +30,7 @@ def process_blocks(blocks: list, atoms: Atoms = None, trace: bool = False):
     # distance_vectors = []
     distance_norms = []
     forceconstant_norms = []
+    forceconstant_traces = []
 
     for block in blocks:
         iatom, n_neighbors, data = block
@@ -48,24 +49,27 @@ def process_blocks(blocks: list, atoms: Atoms = None, trace: bool = False):
             pair_numbers.append(numbers)
             symbols = "-".join([chemical_symbols[ii] for ii in numbers])
             pair_symbols.append(symbols)
-            if trace:
-                measure = np.trace(MM)
-            else:
-                measure = np.linalg.norm(MM)
-            forceconstant_norms.append(measure)
+            norm = np.linalg.norm(MM)
+            trace = np.trace(MM)
+            forceconstant_norms.append(norm)
+            forceconstant_traces.append(trace)
 
     pair_indices = np.array(pair_indices)
     pair_numbers = np.array(pair_numbers)
     pair_symbols = np.array(pair_symbols)
     distance_norms = np.array(distance_norms)
     forceconstant_norms = np.array(forceconstant_norms)
+    forceconstant_traces = np.array(forceconstant_traces)
 
-    r_shell, i_shell = np.unique(distance_norms.round(decimals=10), return_inverse=True)
+    r_shell, i_shell = np.unique(
+        distance_norms.round(decimals=decimals), return_inverse=True
+    )
 
     data = {
         "distance": r_shell[i_shell],
         "shell_index": i_shell,
         "fc_norm": forceconstant_norms,
+        "fc_trace": forceconstant_traces,
         "symbols": pair_symbols,
         "index_atom_1": pair_indices[:, 0],
         "index_atom_2": pair_indices[:, 1],
@@ -78,18 +82,27 @@ def process_blocks(blocks: list, atoms: Atoms = None, trace: bool = False):
     return df
 
 
-app = typer.Typer(pretty_exceptions_show_locals=True)
+app = typer.Typer(pretty_exceptions_show_locals=False)
 
 
 @app.command()
 def main(
-    file: Path = _file,
-    file_primitive: Path = _file_primitive,
+    file: Path = "outfile.forceconstant",
+    file_primitive: Path = "infile.ucposcar",
+    outfile_data: Path = "fc_norms_and_traces.csv",
     plot: bool = True,
     log: bool = False,
     trace: bool = False,
 ):
-    """Read forceconstants and write pair-resolved norm or trace per distance/shell"""
+    """Read forceconstants and write pair-resolved norm or trace per distance/shell
+
+    Args:
+        file (Path): Path to the forceconstants file.
+        file_primitive (Path): Path to the primitive cell file.
+        plot (bool, optional): Whether to generate plots. Defaults to True.
+        log (bool, optional): Whether to use logarithmic scale in the plots. Defaults to False.
+        trace (bool, optional): Whether to plot the trace instead of the norm. Defaults to False.
+    """
     echo(f"Read primitive cell from {file_primitive}")
     atoms = read_ase(file_primitive, format="vasp")
 
@@ -101,18 +114,12 @@ def main(
     echo(f".. number of atoms:  {n_atoms}")
     echo(f".. realspace cutoff: {cutoff:.3f} AA")
 
-    df = process_blocks(blocks=blocks, atoms=atoms, trace=trace)
+    df = process_blocks(blocks=blocks, atoms=atoms)
 
     echo(f".. unique pairs per element: {df.symbols.unique()}")
 
     echo(df.head())
 
-    if trace:
-        tag = "trace"
-    else:
-        tag = "norm"
-
-    outfile_data = _outfile_data.replace("TAG", tag)
     echo(f".. write data to {outfile_data}")
     df.to_csv(outfile_data)
 
@@ -121,11 +128,23 @@ def main(
 
         symbols_unique = df.symbols.unique()
 
+        x1 = df.distance
+        x2 = df.shell_index
+        if trace:
+            y = df.fc_trace
+            ax1.set_ylabel(r"FC trace (eV / ${\rm \AA}^2$)")
+        else:
+            y = df.fc_norm
+            ax1.set_ylabel(r"FC Norm (eV / ${\rm \AA}^2$)")
+
         for ii, _ in enumerate(symbols_unique):
-            df_temp = df[df.symbols == symbols_unique[ii]]
-            df_temp = df_temp[df_temp.distance > 0.1]
-            ax1.plot(df_temp.distance, df_temp.fc_norm, marker="o", lw=0.5)
-            ax2.plot(df_temp.shell_index, df_temp.fc_norm, marker="o", lw=0.5)
+            mask = (df.symbols == symbols_unique[ii]) & (df.distance > 0.1)
+            _x1 = x1[mask]
+            _x2 = x2[mask]
+            _y = y[mask]
+
+            ax1.plot(_x1, _y, marker=markers[ii], lw=0.5)
+            ax2.plot(_x2, _y, marker=markers[ii], lw=0.5)
 
         for ax in (ax1, ax2):
             ax.legend(symbols_unique, markerfirst=False, framealpha=0)
@@ -136,12 +155,9 @@ def main(
 
         ax1.set_xlabel(r"Distance (${\rm \AA}$)")
         ax2.set_xlabel("Shell no. (1)")
-        if trace:
-            ax1.set_ylabel(r"FC trace (eV / ${\rm \AA}^2$)")
-        else:
-            ax1.set_ylabel(r"FC Norm (eV / ${\rm \AA}^2$)")
 
-        outfile_plot = _outfile_plot.replace("TAG", tag)
+        outfile_plot = _outfile_plot.replace("TAG", "trace" if trace else "norm")
+
         echo(f".. save plot to {outfile_plot}")
         fig.savefig(outfile_plot)
 
