@@ -129,8 +129,6 @@ def write_infiles(
         with open(outfile_forces, "w") as ff:
             for ii, row in enumerate(rows):
 
-                print(row)
-
                 for force in row[keys.forces]:
                     (fx, fy, fz) = force
                     ff.write(f"{fx:23.15e} {fy:23.15e} {fz:23.15e}\n")
