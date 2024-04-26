@@ -88,7 +88,7 @@ def inform(atoms, symprec=default_symprec, max_atoms=20, verbose=False):
             for key, val in atoms.cell.bandpath().special_points.items():
                 echo(f"    {key}: {val}")
 
-    if symprec is not None:
+    if symprec is not None and all(atoms.pbc):
         echo()
         echo("Report symmetry information from spglib:")
         sds = get_symmetry_dataset(atoms, symprec=symprec)
@@ -106,7 +106,7 @@ def inform(atoms, symprec=default_symprec, max_atoms=20, verbose=False):
                 echo(f"    {vec}")
 
     # Info
-    for (key, val) in atoms.info.items():
+    for key, val in atoms.info.items():
         echo(f"  {key:10s}: {val}")
 
 
