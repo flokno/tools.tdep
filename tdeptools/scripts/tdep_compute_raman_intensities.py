@@ -33,20 +33,24 @@ def read_dataset(file: str) -> xr.Dataset:
     return xr.merge([ds, ds_ha, ds_an, ds_qm])
 
 
-def plot_intensity(x, y, xlim, outfile="outfile.intensity_raman.pdf"):
+def plot_intensity(x, y, yp, xlim, outfile="outfile.intensity_raman.pdf"):
     fig, ax = plt.subplots(figsize=(6, 4))
+    y /= y.max()
+    yp /= yp.max()
     ax.plot(x, y)
+    ax.plot(x, yp, ls="--", color="k", lw=1)
     ax.set_xlim(0, xlim)
     ax.set_yticks([])
     ax.set_xlabel("Frequency (1/cm)")
     ax.set_ylabel("Intensity")
+    ax.legend(["unpolarized", "isotropic"])
     echo(f"... save intensity plot to '{outfile}'")
     fig.savefig(outfile)
 
 
 def plot_po_map(
     po_direction,
-    name,
+    outfile,
     arrays_with_frequency,
     tol=1e-7,
     linear=False,
@@ -77,8 +81,6 @@ def plot_po_map(
 
     fig.suptitle(f"PO Raman intensity for {po_direction} orientation")
 
-    a, b, c = [int(np.ceil(x)) for x in po_direction]
-    outfile = "outfile." + name + f"_{a}{b}{c}" + ".pdf"
     echo(f"... save PO plot to '{outfile}'")
     fig.savefig(outfile)
 
@@ -223,6 +225,7 @@ def main(
         qdir = ds.incident_wavevector.data
     else:
         echo("!!! manually specified q direction:")
+        qdir = np.asarray(qdir)
     echo(f"--> data is for incident q = {qdir}")
 
     # dielectric
@@ -231,7 +234,7 @@ def main(
     n_tensors = len(data_dielectric)
     echo(f"... found {n_tensors} tensors")
 
-    # Check if we have 2 dielectric tensors per mode, optionally w/o acoustic
+    # Get the Raman tensors per mode
     if len(data_dielectric) == 2 * n_modes:
         echo("!!! 2 * 3N SAMPLES FOUND, ASSUME REAL SPACE DISPLACEMENTS")
         I_qab = get_intensity_from_atom_displacements(
@@ -249,6 +252,22 @@ def main(
 
     assert len(data_dielectric) == 2 * n_modes, (len(data_dielectric), 2 * n_modes)
 
+    # get PO directions orthogonal to incident q direction
+    po_direction = qdir
+    echo(f"... compute PO intensity map for k_in = {po_direction}")
+    echo("... find orthonormal directions:")
+    directions = get_orthonormal_directions(po_direction)
+    for ii, d in enumerate(directions):
+        echo(f"... direction {ii}: {d}")
+
+    # project Raman tensors on PO angles
+    I_qp_para, I_qp_perp, angles = po_average(
+        I_abq=I_qab, direction1=directions[1], direction2=directions[2]
+    )
+
+    # average over PO
+    I_q_po = I_qp_para.mean(axis=1) + I_qp_perp.mean(axis=1)
+
     # compute 1 intensity per mode per isotropic averaging
     I_q = np.zeros(n_modes)
     for ii, I_ab in enumerate(I_qab):
@@ -258,7 +277,8 @@ def main(
     data = {
         "imode": np.arange(n_modes),
         "frequency": ds.harmonic_frequencies,
-        "intensity_raman": I_q.round(decimals=decimals),
+        "intensity_raman_isotropic": I_q.round(decimals=decimals),
+        "intensity_raman_unpolarized": I_q_po.round(decimals=decimals),
     }
     df_intensity = pd.DataFrame(data)
 
@@ -267,86 +287,92 @@ def main(
     rep = df_intensity.to_string()
     echo(panel.Panel(rep, title=str(outfile_intensity_mode), expand=False))
 
+    # save mode intensities to file
     echo(f"... write intensities to '{outfile_intensity_mode}'")
     df_intensity.to_csv(outfile_intensity_mode, index=None)
 
-    # now full spectral
-    _x = ds.frequency * unit
+    # DEV: what is this actually? needed?
+    # now full spectral function per mode
+
+    # multiply in the spectral function to get spectra
+    _x = ds.frequency.data * unit
     data = I_q[:, None] * ds.spectralfunction_per_mode.data
     da_mode = xr.DataArray(
         data,
-        coords={"imode": np.arange(n_modes), "frequency": _x.data},
+        coords={"imode": np.arange(n_modes), "frequency": _x},
         name="intensity_per_mode",
     )
-    da_total = xr.DataArray(
-        data.sum(axis=0), coords={"frequency": _x.data}, name="intensity"
-    )
+    da_isotropic = da_mode.sum(dim="imode")
+    da_isotropic.name = "spectral_intensity_raman_isotropic"
 
-    ds_intensity = xr.merge([da_mode, da_total])
-    ds_intensity.to_netcdf("outfile.intensity_raman.h5")
+    # ds_intensity = xr.merge([da_total, da_mode])
+    # ds_intensity.to_netcdf("outfile.intensity_raman.h5")
 
-    # now for the PO
-    po_direction = qdir
-    echo(f"... compute PO intensity map for k_in = {po_direction}")
-    echo("... find orthonormal directions:")
-    directions = get_orthonormal_directions(po_direction)
-    for ii, d in enumerate(directions):
-        echo(f"... direction {ii}: {d}")
+    # prepare datasets for the PO maps
+    # coords = {
+    #     "frequency": df_intensity.frequency * unit,
+    #     "angle": angles,
+    # }
+    # dims = coords.keys()  # ("frequency", "angle")
+    # attrs = {f"direction{ii+1}": d for ii, d in enumerate(directions)}
+    # kw = {"dims": dims, "coords": coords, "attrs": attrs}
 
-    # get PO data and corresponding angles
-    I_qp_para, I_qp_perp, angles = po_average(
-        I_abq=I_qab, direction1=directions[1], direction2=directions[2]
-    )
+    # # create 1 DataArray each for perpendicular/parallel
+    # name = key_intensity_raman + "_PO"
+    # da_para = xr.DataArray(I_qp_para, name=name + "_parallel", **kw)
+    # da_perp = xr.DataArray(I_qp_perp, name=name + "_perpendicular", **kw)
+    # arrays = [da_para, da_perp]
 
-    # prepare dataset with labels etc
+    # echo(_x.shape)
+    # echo(df_intensity.frequency.shape)
+    # asdf
+
+    # now multiply in the spectral functions for each PO orientation
     coords = {
-        "frequency": df_intensity.frequency * unit,
         "angle": angles,
+        "frequency": _x,
     }
-    dims = coords.keys()  # ("frequency", "angle")
     attrs = {f"direction{ii+1}": d for ii, d in enumerate(directions)}
-    kw = {"dims": dims, "coords": coords, "attrs": attrs}
-
-    name = key_intensity_raman + "_PO"
-    da_para = xr.DataArray(I_qp_para, name=name + "_parallel", **kw)
-    da_perp = xr.DataArray(I_qp_perp, name=name + "_perpendicular", **kw)
-    arrays = [da_para, da_perp]
-
-    # now multiply in the spectral functions for PO
+    names = ["parallel", "perpendicular"]
+    arrays = [I_qp_para, I_qp_perp]
     arrays_with_frequency = []
-    for da in arrays:
-        _name = da.name.split("_")[-1]
-        data = da.data.T @ ds.spectralfunction_per_mode.data
-        da = xr.DataArray(
-            data, coords={"angle": angles, "frequency": _x.data}, attrs=attrs
-        )
-        da.name = _name
+    for array, name in zip(arrays, names):
+        data = array.T @ ds.spectralfunction_per_mode.data
+        da = xr.DataArray(data, coords=coords, attrs=attrs)
+        da.name = name
         arrays_with_frequency.append(da)
 
     ds_po = xr.merge(arrays_with_frequency)
     echo(f"... save PO data to '{outfile_intensity_po}'")
     ds_po.to_netcdf(outfile_intensity_po)
 
-    # unpolarized intensity
-    _s = ds_po.parallel.sum(dim="angle") + ds_po.parallel.sum(dim="angle")
-    s = _s.to_series()
+    # get the unpolarized intensity = mean over angle
+    _ds = ds_po.mean(dim="angle")
+    _ds["unpolarized"] = _ds.parallel + _ds.perpendicular
+    _ds["isotropic"] = da_isotropic
+    # more distinguishable naming:
+    _rename = {var: f"intensity_{var}" for var in _ds.data_vars}
+    df = _ds.rename(_rename).to_dataframe()
     echo(f"... save unpolarized intensity to '{outfile_intensity}'")
-    s.to_csv(outfile_intensity)
+    df.to_csv(outfile_intensity)
 
+    # some plotting
     if plot:
-        _name = str(outfile_intensity_po).split(".")[1]
+        a, b, c = [int(np.ceil(x)) for x in qdir / qdir.max()]
+        _name = str(outfile_intensity).split(".")[1]
+        _outfile = "outfile." + _name
         if xlim is None:
             xlim = 1.2 * ds.harmonic_frequencies.max() * unit
         echo(f"... xlim = {float(xlim)}")
         plot_po_map(
             po_direction,
-            _name,
+            _outfile + f"_po_{a}{b}{c}.pdf",
             arrays_with_frequency,
             linear=linear,
             xlim=xlim,
             vmax=vmax,
         )
-        plot_intensity(_x, s, xlim=xlim)
+        plot_intensity(_x, df.intensity_unpolarized, df.intensity_isotropic, xlim=xlim, outfile=_outfile + f"_{a}{b}{c}.pdf")
 
 
 if __name__ == "__main__":
