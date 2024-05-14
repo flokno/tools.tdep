@@ -28,7 +28,7 @@ def _array_to_str(array, decimals=6):
     return f"[ {rep} ]"
 
 
-app = typer.Typer()
+app = typer.Typer(pretty_exceptions_show_locals=False)
 
 
 @app.command()
