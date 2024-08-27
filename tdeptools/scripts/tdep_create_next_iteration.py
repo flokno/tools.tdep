@@ -69,6 +69,7 @@ def main(
     create_sample_folder: bool = True,
     file_geometry: str = "geometry.in",
     files_control: List[Path] = None,
+    files_aux: List[Path] = None,
     predictions: bool = False,
     file_predictions: Path = "predictions.nc",
     format: str = "aims",
@@ -113,6 +114,11 @@ def main(
     if files_control is not None:
         echo(f".. copy control files: {files_control}")
         for file in files_control:
+            shutil.copy(file, folder_new)
+
+    if files_aux is not None:
+        echo(f".. copy aux files: {files_aux}")
+        for file in files_aux:
             shutil.copy(file, folder_new)
 
     if create_sample_folder:

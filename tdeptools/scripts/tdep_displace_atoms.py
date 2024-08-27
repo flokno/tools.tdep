@@ -16,6 +16,7 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 def main(
     file: Path,
     file_unitcell: Path = None,
+    nmax: int = None,
     plusminus: bool = True,
     displacement: float = typer.Option(default_displacement, help="displacement in Å"),
     format: str = "vasp",
@@ -60,8 +61,16 @@ def main(
     else:
         signs = (1,)
 
+    natoms = len(atoms)
+
+    if nmax is None:
+        nmax = natoms
+
+    echo(f"... number of atoms:         {natoms}")
+    echo(f"... number of displacements: {nmax}")
+
     counter = 0
-    for nn in list_match:
+    for nn in list_match[:nmax]:
         for ii in range(3):
             for ss in signs:
                 counter += 1
