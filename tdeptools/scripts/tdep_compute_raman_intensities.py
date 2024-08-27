@@ -21,7 +21,7 @@ from tdeptools.scripts.tdep_displace_atoms import default_displacement
 
 _default_po_direction = (None, None, None)
 
-key_intensity_raman = "intensity_raman"
+key_intensity_raman = "raman_intensity"
 
 
 def read_dataset(file: str) -> xr.Dataset:
@@ -34,17 +34,23 @@ def read_dataset(file: str) -> xr.Dataset:
     return xr.merge([ds, ds_ha, ds_an, ds_qm])
 
 
-def plot_intensity(x, y, yp, xlim, outfile="outfile.intensity_raman.pdf"):
+def plot_intensity(
+    x, y_unpolarized, y_isotropic=None, xlim=None, outfile="outfile.raman_intensity.pdf"
+):
     fig, ax = plt.subplots(figsize=(6, 4))
-    y /= y.max()
-    yp /= yp.max()
-    ax.plot(x, y)
-    ax.plot(x, yp, ls="--", color="k", lw=1)
-    ax.set_xlim(0, xlim)
+    y_unpolarized /= y_unpolarized.max()
+    ax.plot(x, y_unpolarized)
+    legend = ["unpolarized"]
+    if y_isotropic is not None:
+        y_isotropic /= y_isotropic.max()
+        ax.plot(x, y_isotropic, ls="--", color="k", lw=1)
+        legend += ["isotropic"]
+    if xlim is not None:
+        ax.set_xlim(0, xlim)
     ax.set_yticks([])
     ax.set_xlabel("Frequency (1/cm)")
     ax.set_ylabel("Intensity")
-    ax.legend(["unpolarized", "isotropic"])
+    ax.legend(legend)
     echo(f"... save intensity plot to '{outfile}'")
     fig.savefig(outfile)
 
@@ -184,9 +190,9 @@ def main(
     file_geometry: Path = _infile("infile.ucposcar"),
     file_dielectric: Path = _infile("infile.dielectric_tensor"),
     file_self_energy: Path = _infile("outfile.phonon_self_energy.hdf5"),
-    outfile_intensity: Path = "outfile.intensity_raman.csv",
-    outfile_intensity_mode: Path = "outfile.mode_intensity.csv",
-    outfile_intensity_po: Path = "outfile.intensity_raman_po.h5",
+    outfile_intensity: Path = None,
+    outfile_intensity_po: Path = None,
+    outfile_activity_mode: Path = None,
     temperature: float = 0.0,
     displacement: float = typer.Option(default_displacement, help="displacement in Å"),
     quantum: bool = True,
@@ -195,6 +201,7 @@ def main(
     vmax: float = None,
     linear: bool = False,
     thz: bool = False,
+    isotropic: bool = False,
     decimals: int = 9,
     qdir: Tuple[int, int, int] = (None, None, None),
     format_geometry: str = "vasp",
@@ -237,6 +244,9 @@ def main(
         echo("!!! manually specified q direction:")
         qdir = np.asarray(qdir)
     echo(f"--> data is for incident q = {qdir}")
+
+    _a, _b, _c = [int(np.ceil(x)) for x in qdir / qdir.max()]
+    suffix_dir = f"_{_a}{_b}{_c}"
 
     # dielectric
     echo(f"... read dielectric tensors from '{file_dielectric}'")
@@ -286,20 +296,24 @@ def main(
     # create a dataframe for mode intensities
     data = {
         "imode": np.arange(n_modes),
-        "frequency": ds.harmonic_frequencies,
-        "intensity_raman_isotropic": I_q.round(decimals=decimals),
-        "intensity_raman_unpolarized": I_q_po.round(decimals=decimals),
+        "frequency": ds.peak_mid,
+        "frequency_cm": unit * ds.peak_mid,
+        "raman_intensity_isotropic": I_q.round(decimals=decimals),
+        "raman_intensity_unpolarized": I_q_po.round(decimals=decimals),
     }
     df_intensity = pd.DataFrame(data)
 
     # report
-    echo("RAMAN MODE INTENSITIES:")
+    if outfile_activity_mode is None:
+        outfile_activity_mode = Path(f"outfile.raman_activity_mode{suffix_dir}.csv")
+
+    echo("RAMAN MODE ACTIVITIES:")
     rep = df_intensity.to_string()
-    echo(panel.Panel(rep, title=str(outfile_intensity_mode), expand=False))
+    echo(panel.Panel(rep, title=str(outfile_activity_mode), expand=False))
 
     # save mode intensities to file
-    echo(f"... write intensities to '{outfile_intensity_mode}'")
-    df_intensity.to_csv(outfile_intensity_mode, index=None)
+    echo(f"... write activities to '{outfile_activity_mode}'")
+    df_intensity.to_csv(outfile_activity_mode, index=None)
 
     # DEV: what is this actually? needed?
     # now full spectral function per mode
@@ -313,7 +327,7 @@ def main(
         name="intensity_per_mode",
     )
     da_isotropic = da_mode.sum(dim="imode")
-    da_isotropic.name = "spectral_intensity_raman_isotropic"
+    da_isotropic.name = "spectral_raman_intensity_isotropic"
 
     # ds_intensity = xr.merge([da_total, da_mode])
     # ds_intensity.to_netcdf("outfile.intensity_raman.h5")
@@ -353,6 +367,8 @@ def main(
         arrays_with_frequency.append(da)
 
     ds_po = xr.merge(arrays_with_frequency)
+    if outfile_intensity_po is None:
+        outfile_intensity_po = Path(f"outfile.raman_intensity{suffix_dir}_po.h5")
     echo(f"... save PO data to '{outfile_intensity_po}'")
     ds_po.to_netcdf(outfile_intensity_po)
 
@@ -363,32 +379,33 @@ def main(
     # more distinguishable naming:
     _rename = {var: f"intensity_{var}" for var in _ds.data_vars}
     df = _ds.rename(_rename).to_dataframe()
+    if outfile_intensity is None:
+        outfile_intensity = Path(f"outfile.raman_intensity{suffix_dir}.csv")
     echo(f"... save unpolarized intensity to '{outfile_intensity}'")
     df.to_csv(outfile_intensity)
 
     # some plotting
     if plot:
-        a, b, c = [int(np.ceil(x)) for x in qdir / qdir.max()]
-        _name = str(outfile_intensity).split(".")[1]
-        _outfile = "outfile." + _name
+        _outfile = outfile_intensity_po.stem + ".pdf"
         if xlim is None:
             xlim = 1.2 * ds.harmonic_frequencies.max() * unit
         echo(f"... xlim = {float(xlim)}")
         plot_po_map(
             po_direction,
-            _outfile + f"_po_{a}{b}{c}.pdf",
+            _outfile,
             arrays_with_frequency,
             linear=linear,
             xlim=xlim,
             vmax=vmax,
         )
-        plot_intensity(
-            _x,
-            df.intensity_unpolarized,
-            df.intensity_isotropic,
-            xlim=xlim,
-            outfile=_outfile + f"_{a}{b}{c}.pdf",
-        )
+
+        _y = df.intensity_unpolarized
+        _yp = None
+        if isotropic:
+            _yp = df.intensity_isotropic
+
+        _outfile = outfile_intensity.stem + ".pdf"
+        plot_intensity(_x, _y, _yp, xlim=xlim, outfile=_outfile)
 
 
 if __name__ == "__main__":
