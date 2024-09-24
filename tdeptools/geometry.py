@@ -156,6 +156,27 @@ def compute_area(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray) -> float:
     return area
 
 
+def compute_volume(points: list) -> float:
+    """Compute the volume of a tetrahedron defined by four points in 3D space.
+
+    Args:
+        points: A list of four points in 3D space.
+
+    Returns:
+        float: The volume of the tetrahedron.
+
+    """
+    # Compute the vectors between the points
+    v1 = points[1] - points[0]
+    v2 = points[2] - points[0]
+    v3 = points[3] - points[0]
+
+    # Compute the volume of the tetrahedron
+    volume = np.abs(np.dot(v1, np.cross(v2, v3))) / 6
+
+    return volume
+
+
 def compute_mean_distance_to_centroid(points: list) -> float:
     """Compute the mean distance to the centroid for a list of points.
 

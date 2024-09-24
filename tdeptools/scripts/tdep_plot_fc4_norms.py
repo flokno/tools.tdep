@@ -12,6 +12,7 @@ from ase.io import read as read_ase
 from matplotlib import pyplot as plt
 
 from tdeptools.geometry import (
+    compute_volume,
     compute_mean_distance_to_centroid,
     compute_min_max_distance,
 )
@@ -104,6 +105,7 @@ def process_blocks(blocks: list, atoms: Atoms = None, decimals: int = 10):
     tuple_mean_distances = []
     tuple_min_distances = []
     tuple_max_distances = []
+    tuple_volumes = []
 
     # distance_vectors = []
     forceconstant_norms = []
@@ -124,6 +126,8 @@ def process_blocks(blocks: list, atoms: Atoms = None, decimals: int = 10):
             min_distance, max_distance = compute_min_max_distance([r1, r2, r3, r4])
             tuple_min_distances.append(min_distance)
             tuple_max_distances.append(max_distance)
+            volume = compute_volume([r1, r2, r3, r4])
+            tuple_volumes.append(volume)
 
             tuple_indices.append([iatom, i1, i2, i3])
             n1, n2, n3 = (
@@ -149,6 +153,9 @@ def process_blocks(blocks: list, atoms: Atoms = None, decimals: int = 10):
     tuple_symbols = np.array(tuple_symbols)
     # distance_norms = np.array(distance_norms)
     tuple_mean_distances = np.array(tuple_mean_distances)
+    tuple_min_distances = np.array(tuple_min_distances)
+    tuple_max_distances = np.array(tuple_max_distances)
+    tuple_volumes = np.array(tuple_volumes)
     forceconstant_norms = np.array(forceconstant_norms)
     forceconstant_traces = np.array(forceconstant_traces)
 
@@ -162,6 +169,7 @@ def process_blocks(blocks: list, atoms: Atoms = None, decimals: int = 10):
         "min_distance": tuple_min_distances,
         "max_distance": tuple_max_distances,
         "mean_distance": tuple_mean_distances,
+        "volume": tuple_volumes,
         "fc_norm": forceconstant_norms,
         "fc_trace": forceconstant_traces,
         "symbols": tuple_symbols,
@@ -181,12 +189,13 @@ def process_blocks(blocks: list, atoms: Atoms = None, decimals: int = 10):
 
 
 def plot_norms(log, trace, xmax, ymax, df):
-    fig, (ax1, ax2) = plt.subplots(ncols=2, sharey=True, figsize=(8, 4))
+    fig, (ax1, ax2, ax3) = plt.subplots(ncols=3, sharey=True, figsize=(12, 4))
 
     symbols_unique = df.symbols.unique()
 
     x1 = df.mean_distance
-    x2 = df.shell_index
+    x2 = df.volume
+    x3 = df.shell_index
     if trace:
         y = df.fc_trace
         ax1.set_ylabel(r"FC3 trace (eV / ${\rm \AA}^3$)")
@@ -198,20 +207,23 @@ def plot_norms(log, trace, xmax, ymax, df):
         mask = (df.symbols == symbols_unique[ii]) & (df.mean_distance > 0.1)
         _x1 = x1[mask]
         _x2 = x2[mask]
+        _x3 = x3[mask]
         _y = y[mask]
 
         ax1.plot(_x1, _y, marker=markers[ii], lw=0.5)
         ax2.plot(_x2, _y, marker=markers[ii], lw=0.5)
+        ax3.plot(_x3, _y, marker=markers[ii], lw=0.5)
 
-    for ax in (ax1, ax2):
-        ax.legend(symbols_unique, markerfirst=False, framealpha=0)
+    for ax in (ax1,):
+        ax.legend(symbols_unique, markerfirst=False, framealpha=0, loc=2)
         if log:
             ax.set_yscale("log")
 
         ax.axhline(0, color="#313131", zorder=-1, lw=0.5)
 
     ax1.set_xlabel(r"Distance (${\rm \AA}$)")
-    ax2.set_xlabel("Shell no. (1)")
+    ax2.set_xlabel(r"Volume (${\rm \AA}^3$)")
+    ax3.set_xlabel("Shell no. (1)")
 
     # plot boundaries
     if not xmax:
@@ -224,7 +236,7 @@ def plot_norms(log, trace, xmax, ymax, df):
     if trace:
         ymin = -ymax
 
-    ax1.set_xlim(0, 1.1 * df.mean_distance.max())
+    ax1.set_xlim(0, 1.1 * x1.max())
     ax1.set_ylim(ymin, ymax)
 
     outfile_plot = _outfile_plot.replace("TAG", "trace" if trace else "norm")
