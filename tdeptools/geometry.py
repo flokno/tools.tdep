@@ -173,3 +173,26 @@ def compute_mean_distance_to_centroid(points: list) -> float:
     # Compute the mean distance
     mean_distance = np.mean(distances)
     return mean_distance
+
+
+def compute_min_max_distance(points: list) -> (float, float):
+    """Compute the minimum and maximum distance between a list of points.
+
+    Args:
+        points: A list of points in 3D space.
+
+    Returns:
+        (float, float): The minimum and maximum distance between the points.
+
+    """
+    # Compute the pairwise distances between the points
+    distances = []
+    for i, point1 in enumerate(points):
+        for j, point2 in enumerate(points):
+            if i != j:
+                distance = np.linalg.norm(point1 - point2)
+                distances.append(distance)
+    # Compute the minimum and maximum distances
+    min_distance = min(distances)
+    max_distance = max(distances)
+    return min_distance, max_distance
