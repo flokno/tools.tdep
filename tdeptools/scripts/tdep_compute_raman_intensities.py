@@ -199,10 +199,10 @@ def main(
     plot: bool = False,
     xlim: float = None,
     vmax: float = None,
-    linear: bool = False,
+    linear: bool = True,
     thz: bool = False,
     isotropic: bool = False,
-    decimals: int = 9,
+    decimals: int = 5,
     qdir: Tuple[int, int, int] = (None, None, None),
     format_geometry: str = "vasp",
 ):
@@ -286,7 +286,7 @@ def main(
     )
 
     # average over PO
-    I_q_po = I_qp_para.mean(axis=1) + I_qp_perp.mean(axis=1)
+    I_q_po = (I_qp_para.sum(axis=1) + I_qp_perp.sum(axis=1)) / 2 / np.pi
 
     # compute 1 intensity per mode per isotropic averaging
     I_q = np.zeros(n_modes)
@@ -298,22 +298,22 @@ def main(
         "imode": np.arange(n_modes),
         "frequency": ds.peak_mid,
         "frequency_cm": unit * ds.peak_mid,
-        "raman_intensity_isotropic": I_q.round(decimals=decimals),
-        "raman_intensity_unpolarized": I_q_po.round(decimals=decimals),
+        "raman_activity_isotropic": I_q.round(decimals=decimals),
+        "raman_activity_unpolarized": I_q_po.round(decimals=decimals),
     }
-    df_intensity = pd.DataFrame(data)
+    df_activity = pd.DataFrame(data)
 
     # report
     if outfile_activity_mode is None:
         outfile_activity_mode = Path(f"outfile.raman_activity_mode{suffix_dir}.csv")
 
     echo("RAMAN MODE ACTIVITIES:")
-    rep = df_intensity.to_string()
+    rep = df_activity.to_string()
     echo(panel.Panel(rep, title=str(outfile_activity_mode), expand=False))
 
     # save mode intensities to file
     echo(f"... write activities to '{outfile_activity_mode}'")
-    df_intensity.to_csv(outfile_activity_mode, index=None)
+    df_activity.to_csv(outfile_activity_mode, index=None)
 
     # DEV: what is this actually? needed?
     # now full spectral function per mode
@@ -373,7 +373,7 @@ def main(
     ds_po.to_netcdf(outfile_intensity_po)
 
     # get the unpolarized intensity = mean over angle
-    _ds = ds_po.mean(dim="angle")
+    _ds = ds_po.sum(dim="angle") / 2 / np.pi
     _ds["unpolarized"] = _ds.parallel + _ds.perpendicular
     _ds["isotropic"] = da_isotropic
     # more distinguishable naming:
