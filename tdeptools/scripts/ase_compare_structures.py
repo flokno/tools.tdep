@@ -40,7 +40,7 @@ def main(
 
     cell1 = np.array(atoms1.cell)
     cell2 = np.array(atoms2.cell)
-    smatrix = np.linalg.inv(cell1).T @ cell2
+    smatrix = np.linalg.inv(cell1).T @ cell2.T
     echo("... supercell matrix:")
     echo(smatrix)
 
@@ -48,7 +48,7 @@ def main(
     echo(smatrix.round().astype(int))
 
     echo("... for TDEP `generate_structure`")
-    echo(" ".join([f"{m:d}" for m in smatrix.round().astype(int).T.flatten()]))
+    echo(" ".join([f"{m:d}" for m in smatrix.round().astype(int).flatten()]))
 
 
 if __name__ == "__main__":

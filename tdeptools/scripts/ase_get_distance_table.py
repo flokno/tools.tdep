@@ -45,6 +45,7 @@ def main(
     file: Path,
     mic: bool = True,
     n_replicas: int = 1,
+    pair: int = None,
     decimals: int = 5,
     plot: bool = False,
     format: str = None,
@@ -94,6 +95,10 @@ def main(
     # unique pairs
     symbols_unique = df["symbols"].unique()
     echo(f"... unique pairs: {symbols_unique}")
+
+    if pair is not None:
+        echo(f"--> select pair {pair} = '{symbols_unique[pair]}'")
+        df = df[df["symbols"] == symbols_unique[pair]]
 
     _nrows = 15
     echo(f"... first {_nrows} neighbors, first is nearest neighbor:")
