@@ -14,33 +14,55 @@ amplitude_to_angstrom = 1e10 / np.sqrt(lo_amu_to_kg)
 THz_to_K = lo_frequency_THz_to_Hartree / lo_kb_Hartree
 
 
-def n_BE(omega: float, temperature: float = 0, quantum: bool = True):
+def n_BE(
+    omega: float,
+    temperature: float = 0,
+    quantum: bool = True,
+    negative: bool = True,
+    zero_frequency_as_inf: bool = False,
+    eps: float = 2 * np.finfo(float).eps,
+) -> np.ndarray:
     """Calculates the Bose-Einstein distribution.
+
+    For negative frequencies: n(-w) = -n(w) - 1
 
     Args:
         omega: A float value representing the frequency of the system. (in THz)
         temperature: A float value representing the temperature of the system (in K)
         quantum: A boolean value indicating whether to use quantum statistics
+        negative: Calculate for negative frequencies
 
     Returns:
         n : A float value representing the Bose-Einstein distribution.
     """
+    # initialize n
     n = 0.0 * omega
 
-    if temperature < 1e-12:
+    if negative:
+        n[omega < eps] = -1.0
+
+    # deal with temperature == 0
+    if temperature < eps:
         return n
+    else:
+        x = omega * THz_to_K / temperature
 
-    x = omega * THz_to_K / temperature
-
-    if np.all(x < 1e-12):
-        return n
-
-    mask = (x > 1e-5) & (x < 100)  # n will be _very_ small or large elsewhere
+    mask = (abs(x) > eps) & (abs(x) < 100)  # n will be _very_ small or large elsewhere
 
     if quantum:
         n[mask] = 1 / (np.exp(x) - 1)[mask]
     else:
         n[mask] = 1 / x[mask]
+
+    if not negative:
+        n[omega < eps] = 0.0
+
+    # deal with omega == 0
+    mask = abs(omega) < eps
+    if zero_frequency_as_inf:
+        n[mask] = np.nan
+    else:
+        n[mask] = 0.0
 
     return n
 
