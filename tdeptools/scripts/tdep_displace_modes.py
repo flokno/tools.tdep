@@ -16,10 +16,15 @@ default_symprec = 1e-10
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
 
+def _infile(*args):
+    """Input file option, must exist"""
+    return typer.Option(*args, exists=True)
+
+
 @app.command()
 def main(
-    file_uc: Path = "infile.ucposcar",
-    file_self_energy: Path = "outfile.phonon_self_energy.hdf5",
+    file_uc: Path = _infile("infile.ucposcar"),
+    file_self_energy: Path = _infile("outfile.phonon_self_energy.hdf5"),
     plusminus: bool = True,
     temperature: float = 0.0,
     ignore_acoustic: bool = True,
@@ -49,8 +54,10 @@ def main(
         amplitudes = amplitude * np.ones_like(omegas)
 
     # resulting displacements in [N_mode, N_atoms, 3]
-    masses_emu = np.sqrt(masses.repeat(3) * lo_amu_to_emu)
-    dus = (evs / masses_emu[None, :]).reshape(-1, len(atoms), 3)
+    # No idea why this was converted to EMU, probably a mistake
+    # masses_emu = np.sqrt(masses.repeat(3) * lo_amu_to_emu)
+    masses = np.sqrt(masses.repeat(3))
+    dus = (evs / masses[None, :]).reshape(-1, len(atoms), 3)
     # multiply in amplitudes
     dus *= amplitudes[:, None, None]
 
@@ -59,6 +66,7 @@ def main(
     else:
         signs = (1,)
 
+    counter = 0
     for imode, du in enumerate(dus):
         if ignore_acoustic:
             if imode < 3:
@@ -69,11 +77,12 @@ def main(
                     echo(f"... mode {imode:03d}: supposed to beacoustic, but > tol")
                     raise ValueError
         for sign in signs:
+            counter += 1
             watoms = atoms.copy()
             watoms.positions += sign * du
             msd = np.linalg.norm(watoms.positions - atoms.positions) / len(atoms)
             rep = {1: "plus", -1: "minus"}[sign]
-            outfile = f"outfile.ucposcar.mode.{imode:03d}.{rep}"
+            outfile = f"outfile.ucposcar.mode.{counter:05d}.{rep}"
             echo(f"... mode {imode:03d}, MSD: {msd:.6f} (A) -> '{outfile}'")
             watoms.write(outfile, format="vasp", direct=True)
 
