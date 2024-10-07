@@ -31,12 +31,14 @@ def n_BE(
         temperature: A float value representing the temperature of the system (in K)
         quantum: A boolean value indicating whether to use quantum statistics
         negative: Calculate for negative frequencies
+        zero_frequency_as_inf: Return infinity for zero frequency
+        eps: A small value to avoid division by zero.
 
     Returns:
         n : A float value representing the Bose-Einstein distribution.
     """
     # initialize n
-    n = 0.0 * omega
+    n = 0.0 * np.asarray(omega)
 
     if negative:
         n[omega < eps] = -1.0
