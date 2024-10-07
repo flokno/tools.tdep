@@ -39,7 +39,7 @@ def plot_df(df, toicm, temperature, outfile_plot, figsize=(6, 6)):
     axs[0].plot(df.index, df["dos"], label="DOS")
     axs[1].plot(df.index, df["dos_convoluted"], label="DOS conv.")
     axs[2].plot(df.index, df["dos_weighted"], label="weighted DOS")
-    axs[3].plot(2 * df.index, df["2w_dos_weighted"], label="weighted 2w-DOS ")
+    axs[3].plot(df.index, df["2w_dos_weighted"], label="weighted 2w-DOS ")
     axs[4].plot(df.index, df["dos_weighted_convoluted"], label="weighted DOS conv.")
     for ax in axs:
         ax.legend(loc=2, frameon=False)
