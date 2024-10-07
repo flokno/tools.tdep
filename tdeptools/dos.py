@@ -40,17 +40,23 @@ def get_bose_weighted_DOS(x, y, temperature, zero_pad=True):
 
 
 def get_weighted_2w_DOS(x, y, temperature, xmin=0, zero_pad=True):
-    """Get Bose-weighted 2\omega-DOS exteneded to negative frequencies"""
+    """Get Bose-weighted 2\omega-DOS exteneded to negative frequencies
+
+    Use
+        \delta ( x - 2w )
+            = \delta ( 2(1/2 * x - w))
+            = 1/2 \delta ( 1/2 * x - w )
+
+    """
     _x, _y, _f = get_bose_weighted_DOS(x, y, temperature, zero_pad=zero_pad)
 
     # need to weight with (n+1)**2
-    _n = n_BE(_x, temperature=temperature)
+    _n = n_BE(_x / 2, temperature=temperature)
 
     # interpolate to get 2\omega
-    f = si.interp1d(2 * _x, _y, kind="cubic", fill_value=0)
-    _y = f(_x)
+    f = si.interp1d(_x, _y, kind="cubic", fill_value=0)
+    _y = f(_x / 2) / 2
 
-    _f = (2 * _n + 1) * (1 + n_BE(2 * _x, temperature=temperature)) * _y
     _f = (_n + 1) ** 2 * _y
 
     _f[abs(_x) < xmin] = 0
