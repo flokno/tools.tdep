@@ -1,29 +1,19 @@
 #! /usr/bin/env python3
 
-import json
+import collections
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import typer
-from ase.io import read
-from matplotlib import pyplot as plt
-from matplotlib.colors import LogNorm, Normalize
-from rich import panel
-from rich import print as echo
-import collections
-from scipy import signal as sl
 import xarray as xr
+from matplotlib import pyplot as plt
+from rich import print as echo
+from rich.progress import track
+from scipy import signal as sl
 
-from tdeptools.physics import n_BE
 from tdeptools.konstanter import lo_frequency_THz_to_icm
-from tdeptools.dos import (
-    get_bose_weighted_DOS,
-    get_weighted_2w_DOS,
-    get_convoluted_DOS,
-    get_convoluted_weighted_DOS,
-)
-
+from tdeptools.physics import n_BE
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
@@ -73,8 +63,38 @@ def delta(x, x0, eta=1e-1):
     return 1 / np.pi * eta / ((x - x0) ** 2 + eta**2)
 
 
+def optimized_convolution_ss(J_qs):
+    """Compute \sum_q J_qs(w) (*) J_qs'(w)"""
+    Nw, Nq, Ns = J_qs.shape
+    J_ss = np.zeros((Nw, Ns, Ns))
+
+    for s1, s2 in track(np.ndindex(Ns, Ns), total=Ns**2):
+        # Compute the convolution for all s1, s2 pairs at once
+        _f1 = J_qs[:, :, s1]
+        _f2 = J_qs[:, :, s2]
+        # Compute all pairs of convolutions at once
+        convolutions = sl.fftconvolve(_f1, _f2, mode="same", axes=0)
+        # Accumulate the result
+        J_ss[:, s1, s2] += convolutions.sum(axis=1) / Nw
+
+    return J_ss
+
+
+def convolution_ss(J_qs):
+    """Naive implementation of convolution"""
+    Nw, Nq, Ns = J_qs.shape
+    J_ss = np.zeros((Nw, Ns, Ns))
+    for iq in track(range(Nq)):
+        for s1, s2 in np.ndindex(Ns, Ns):
+            _f1 = J_qs[:, iq, s1]
+            _f2 = J_qs[:, iq, s2]
+            fpp = sl.convolve(_f1, _f2, "same") / Nw
+            J_ss[:, s1, s2] += fpp
+    return J_ss
+
+
 def compute_spectral_function_convolution(
-    frequencies, weights, n_frequencies=1024, temperature=300, eta=None
+    frequencies, weights, n_frequencies=1024, temperature=300, eta=None, modes=False
 ):
     fs = abs(np.asarray(frequencies))
     ws = np.asarray(weights)
@@ -95,6 +115,19 @@ def compute_spectral_function_convolution(
     for i, w in enumerate(_w):
         Jp_qs[i] = ws[:, None] * (ns + 1) * delta(w, +fs, eta=eta)
         Jm_qs[i] = ws[:, None] * ns * delta(w, -fs, eta=eta)
+
+    J_qs = Jp_qs + Jm_qs
+
+    if modes:
+        # option 0: only sum q, write ss' to file
+        echo()
+        echo("COMPUTE J_ss(w) for all modes")
+        # J_ss = convolution_ss(J_qs)
+        J_ss = optimized_convolution_ss(J_qs)
+
+        _outfile = "J_ss.npy"
+        echo(f"... Save J_ss'(w)to '{_outfile}'")
+        np.save(_outfile, J_ss)
 
     # option 1: sum over q and s first
     fp = Jp_qs.sum(axis=(1, 2))
@@ -144,6 +177,11 @@ def compute_spectral_function_convolution(
     J1s = Jp_qs.sum(axis=(1, 2))
     J2s = Jm_qs.sum(axis=(1, 2))
 
+    if modes:
+        _outfile = "J_s.npy"
+        echo(f"... Save J_s(w)to '{_outfile}'")
+        np.save(_outfile, (Jp_qs + Jm_qs).sum(axis=1))
+
     return collections.namedtuple(
         "jdos", ["frequencies", "f1", "f2", "f1q", "f2q", "f1s", "f2s"]
     )(_w, J1, J2, J1q, J2q, J1s, J2s)
@@ -157,6 +195,7 @@ def main(
     eta: float = None,
     plot: bool = typer.Option(True, help="Plot the DOS convolutions"),
     toicm: bool = True,
+    modes: bool = typer.Option(False, help="Compute the 2PDOS per mode x mode"),
     outfile_data: Path = "outfile.2pdos.csv",
     outfile_plot: Path = "outfile.2pdos.pdf",
 ):
@@ -174,7 +213,7 @@ def main(
 
     # get different contributions to spectral function convolution
     _w, J1, J2, J1q, J2q, J1s, J2s = compute_spectral_function_convolution(
-        fs, ws, n_frequencies=1024, temperature=temperature, eta=eta
+        fs, ws, n_frequencies=1024, temperature=temperature, eta=eta, modes=modes
     )
 
     # create dataframe
