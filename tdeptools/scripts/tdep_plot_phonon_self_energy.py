@@ -29,7 +29,7 @@ def main(
     file: Path,
     thz: bool = False,
     xlim: float = None,
-    linear: bool = False,
+    log: bool = False,
 ):
     fig, ax = get_canvas()
 
@@ -68,6 +68,9 @@ def main(
     ax.set_ylabel("Intensity (arb.)")
 
     ax.set_xlim(0, xlim or 1.1 * max_frequency)
+
+    if log:
+        ax.set_yscale("log")
 
     outfile = file.stem + ".pdf"
     echo(f"... save plot to       '{outfile}'")
