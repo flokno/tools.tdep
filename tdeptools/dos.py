@@ -1,7 +1,8 @@
 import numpy as np
-from scipy import signal as sl
 from scipy import interpolate as si
+from scipy import signal as sl
 
+from .konstanter import lo_frequency_THz_to_icm
 from .physics import n_BE
 
 
@@ -80,3 +81,34 @@ def get_convoluted_weighted_DOS(x, y, temperature, zero_pad=True):
     conv = sl.convolve(f_full, f_full, mode="same")
 
     return x_full, conv / conv.size
+
+
+def get_DOS_convolutions(x, y, temperature) -> dict:
+    """Get DOS convoluted in different ways and return as dict
+
+    Args:
+        x: x axis (frequencies) in THz
+        y: DOS
+        temperature: target temperature in K
+
+    """
+    kw = {"x": x, "y": y, "temperature": temperature}
+    x_full, y_full, y_full_weighted = get_bose_weighted_DOS(**kw)
+    _, _, y2_full_weighted = get_weighted_2w_DOS(**kw)
+    x_c, y_c = get_convoluted_DOS(**kw)
+    x_wc, y_wc = get_convoluted_weighted_DOS(**kw)
+
+    assert np.allclose(x_full, x_wc)
+
+    # create dataframe
+    data = {
+        "frequency": x_full,
+        "frequency_cm": x_full * lo_frequency_THz_to_icm,
+        "dos": y_full,
+        "dos_weighted": y_full_weighted,
+        "dos_convoluted": y_c,
+        "dos_weighted_convoluted": y_wc,
+        "2w_dos_weighted": y2_full_weighted,
+    }
+
+    return data  # namedtuple("dos_convolutions", data.keys())(**data)

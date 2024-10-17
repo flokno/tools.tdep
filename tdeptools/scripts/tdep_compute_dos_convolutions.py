@@ -13,12 +13,7 @@ from rich import panel
 from rich import print as echo
 
 from tdeptools.konstanter import lo_frequency_THz_to_icm
-from tdeptools.dos import (
-    get_bose_weighted_DOS,
-    get_weighted_2w_DOS,
-    get_convoluted_DOS,
-    get_convoluted_weighted_DOS,
-)
+from tdeptools.dos import get_DOS_convolutions
 
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
@@ -69,30 +64,7 @@ def main(
     data_dos = np.loadtxt(file_dos).T
     x_dos, y_dos, *_ = data_dos
 
-    # mask = np.abs(x_dos) > eps
-    # x_dos = x_dos[mask]
-    # y_dos = y_dos[mask]
-
-    # get weighted 2w-DOS
-
-    kw = {"x": x_dos, "y": y_dos, "temperature": temperature}
-    x_full, y_full, y_full_weighted = get_bose_weighted_DOS(**kw)
-    _, _, y2_full_weighted = get_weighted_2w_DOS(**kw)
-    x_c, y_c = get_convoluted_DOS(**kw)
-    x_wc, y_wc = get_convoluted_weighted_DOS(**kw)
-
-    assert np.allclose(x_full, x_wc)
-
-    # create dataframe
-    data = {
-        "frequency": x_full,
-        "frequency_cm": x_full * lo_frequency_THz_to_icm,
-        "dos": y_full,
-        "dos_weighted": y_full_weighted,
-        "dos_convoluted": y_c,
-        "dos_weighted_convoluted": y_wc,
-        "2w_dos_weighted": y2_full_weighted,
-    }
+    data = get_DOS_convolutions(x=x_dos, y=y_dos, temperature=temperature)
     df = pd.DataFrame(data)
 
     _outfile = outfile_data
