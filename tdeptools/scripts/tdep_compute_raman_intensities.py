@@ -224,6 +224,9 @@ def main(
     atoms = read(file_geometry, format=format_geometry)
     n_modes = 3 * len(atoms)
 
+    # factor to Amu^4/m_u
+    factor_to_amu = (atoms.get_volume() / 4 / np.pi) ** 2
+
     echo(f"--> number of atoms: {len(atoms)}")
     echo(f"--> number of modes: {n_modes}")
 
@@ -293,6 +296,9 @@ def main(
     for ii, I_ab in enumerate(I_qab):
         I_q[ii] = intensity_isotropic(I_ab)
 
+    # multiply factor
+    I_q *= factor_to_amu
+
     # create a dataframe for mode intensities
     data = {
         "imode": np.arange(n_modes),
@@ -307,7 +313,7 @@ def main(
     if outfile_activity_mode is None:
         outfile_activity_mode = Path(f"outfile.raman_activity_mode{suffix_dir}.csv")
 
-    echo("RAMAN MODE ACTIVITIES:")
+    echo("RAMAN MODE ACTIVITIES (in Å^4/AMU):")
     rep = df_activity.to_string()
     echo(panel.Panel(rep, title=str(outfile_activity_mode), expand=False))
 
