@@ -4,6 +4,7 @@ on:
     paths:
       - tdeptools/**
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
