@@ -39,12 +39,17 @@ def intensity_parallel(tensor: np.ndarray, vec: np.ndarray):
 
 
 def intensity_isotropic(dielectric_matrix: np.ndarray):
-    """Raman intensity, isotropically averaged"""
+    """Raman intensity, isotropically averaged
+
+
+    [1] D. Porezag and M. R. Pederson, Phys Rev B 54, 7830 (1996).
+    [2] J. M. Skelton et al., Phys Chem Chem Phys 19, 12452 (2017).
+    """
     d11, d22, d33, d32, d31, d21 = _flatten(dielectric_matrix)
 
     intensity = 45 / 9 * np.sum([d11, d22, d33]) ** 2
     intensity += 7 / 2 * ((d11 - d22) ** 2 + (d11 - d33) ** 2 + (d22 - d33) ** 2)
-    intensity += 7 / 2 * 6 * (d32 ** 2 + d31 ** 2 + d21 ** 2)
+    intensity += 7 / 2 * 6 * (d32**2 + d31**2 + d21**2)
 
     return intensity
 
