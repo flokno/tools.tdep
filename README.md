@@ -17,8 +17,10 @@ This package is _highly_ experimental and can rely on unpublished TDEP features 
 The package can be installed via `pip`:
 
 ```
-pip install https://github.com/flokno/tools.tdep/archive/main.zip
+pip install https://github.com/flokno/tools.tdep/archive/refs/tags/v0.0.5.zip
 ```
+
+A list of available releases is given here: https://github.com/flokno/tools.tdep/releases
 
 ## Develop
 
