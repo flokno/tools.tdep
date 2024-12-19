@@ -300,10 +300,16 @@ def main(
     I_q *= factor_to_amu
 
     # create a dataframe for mode intensities
+    if "peak_mid" in ds:
+        echo("... use harmonic frequencies INCLUDING thermal shift")
+        _frequency = ds.peak_mid
+    else:
+        echo("... use bare harmonic frequencies WIHOUT thermal shift")
+        _frequency = ds.harmonic_frequencies
     data = {
         "imode": np.arange(n_modes),
-        "frequency": ds.peak_mid,
-        "frequency_cm": unit * ds.peak_mid,
+        "frequency": _frequency,
+        "frequency_cm": unit * _frequency,
         "raman_activity_isotropic": I_q.round(decimals=decimals),
         "raman_activity_unpolarized": I_q_po.round(decimals=decimals),
     }
